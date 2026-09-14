@@ -65,7 +65,10 @@ societes_gestion:
     strategie_bulletin: scrape_listing
     # NOTE PILOTE (T2-2026) : les « Fil d'Actualités » d'Origin et XL sont des
     # plaquettes 100 % image (aucune couche texte) -> non parsables sans OCR
-    # (non tenté par choix). Eurion et USA sont en texte exploitable.
+    # (non tenté par choix). Le « Rapport périodique » N'EST PAS un fallback :
+    # c'est un document ESG/SFDR sans chiffres financiers (vérifié sur Origin).
+    # Piste restante pour ces 2 SCPI : le rapport annuel (1x/an) ou saisie
+    # manuelle. Eurion et USA sont en texte exploitable.
     scpi:
       corum_origin:
         nom: "Corum Origin"

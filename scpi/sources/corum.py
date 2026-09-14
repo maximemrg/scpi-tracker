@@ -19,6 +19,7 @@ Choix d'extraction (fiabilité > exhaustivité) :
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from datetime import date
 from urllib.parse import unquote, urljoin
 
@@ -26,9 +27,12 @@ from bs4 import BeautifulSoup
 
 from ..models import Confidence, Metric, MetricKey
 from ..parsing import parse_number_fr, parse_period_quarter, quarter_end_date
-from ..pdf import extract_pdf
+from ..pdf import PdfContent, Word, extract_pdf
 from ..registry import ScpiEntry
 from .base import SourceAdapter, norm
+
+# add(key, value, unit, confidence, raw, note=None, override_period=None)
+AddFn = Callable[..., None]
 
 BASE = "https://www.corum.fr"
 _BULLETIN_HINT = norm("Fil d'Actualités")  # "fil d'actualites"
@@ -51,6 +55,7 @@ TARGET_KEYS: tuple[str, ...] = (
 
 _NUM = r"\d[\d\s  ]*(?:,\d+)?"
 
+# --- Motifs sur le TEXTE À PLAT (phrases auto-portantes) ---------------------
 # "7 135 382 parts * 215 € = 1,534 milliard d'euros"  (phrase de bas de page)
 RE_CAP = re.compile(
     rf"(?P<parts>{_NUM})\s*parts?\s*[*x×]\s*(?P<prix>{_NUM})\s*€\s*=\s*"
@@ -58,19 +63,26 @@ RE_CAP = re.compile(
     re.IGNORECASE,
 )
 # "Valeur de reconstitution6 (par part) 222,12 €"
-RE_RECONST = re.compile(
-    rf"reconstitution\S*\s*\(par part\)\s*(?P<v>{_NUM})\s*€",
-    re.IGNORECASE,
-)
-# "Dividende par part1 au 2ème trimestre 2026 2,31 €"
-RE_ACOMPTE = re.compile(
-    rf"dividende par part\S*\s*au\s*(?P<q>\d)\S*\s*trimestre\s*(?P<y>20\d{{2}})\s*"
-    rf"(?P<v>{_NUM})\s*€",
-    re.IGNORECASE,
+RE_RECONST = re.compile(rf"reconstitution\S*\s*\(par part\)\s*(?P<v>{_NUM})\s*€", re.IGNORECASE)
+# "Valeur de réalisation5 (par part) 177,10 €"
+RE_REAL = re.compile(rf"r[eé]alisation\S*\s*\(par part\)\s*(?P<v>{_NUM})\s*€", re.IGNORECASE)
+
+# --- Motifs sur les CELLULES DE TABLEAUX (auto-portantes) --------------------
+# "5,73 % Rendement 20252 (taux de distribution)"  -> TD de l'année
+RE_TD_CELL = re.compile(rf"(?P<v>{_NUM})\s*%\s*Rendement\s*(?P<y>20\d{{2}})", re.IGNORECASE)
+# "2,75 € par part Dividende brut trimestriel"      -> acompte brut du trimestre
+RE_ACOMPTE_CELL = re.compile(
+    rf"(?P<v>{_NUM})\s*€\s*par part\s*Dividende brut trimestriel", re.IGNORECASE
 )
 
 _MULT = {"milliard": 1_000_000_000.0, "million": 1_000_000.0}
 _NOTE_COLONNES = "Non extractible de façon certaine du bulletin (mise en page en colonnes)"
+
+# Libellés positionnels : (metric_key, mots consécutifs du libellé).
+POSITIONAL = (
+    (MetricKey.NOMBRE_IMMEUBLES, ("nombre", "d’immeubles")),
+    (MetricKey.NOMBRE_ASSOCIES, ("associés", "au")),
+)
 
 
 class CorumAdapter(SourceAdapter):
@@ -99,7 +111,7 @@ class CorumAdapter(SourceAdapter):
                 entry, "Bulletin en image (pas de couche texte) — OCR non tenté", pdf_url, period
             )
 
-        return self._extract(entry, content.text, pdf_url, period, published)
+        return self._extract(entry, content, pdf_url, period, published)
 
     # -- Repérage du bulletin -------------------------------------------------
     def _find_latest_bulletin(self, html: str) -> tuple[str, int, int] | None:
@@ -126,45 +138,21 @@ class CorumAdapter(SourceAdapter):
 
     # -- Extraction -----------------------------------------------------------
     def _extract(
-        self, entry: ScpiEntry, text: str, pdf_url: str, period: str, published: date
+        self, entry: ScpiEntry, content: PdfContent, pdf_url: str, period: str, published: date
     ) -> list[Metric]:
-        flat = re.sub(r"\s+", " ", text)
         found: dict[str, Metric] = {}
 
         def add(key: str, value: float, unit: str | None, conf: Confidence, raw: str,
-                note: str | None = None) -> None:
+                note: str | None = None, override_period: str | None = None) -> None:
             found[key] = Metric.ok_num(
                 scpi_id=entry.scpi_id, metric_key=key, value=value, unit=unit,
-                period=period, source_url=pdf_url, published_at=published,
+                period=override_period or period, source_url=pdf_url, published_at=published,
                 collected_at=self.collected_at, confidence=conf, raw=raw, note=note,
             )
 
-        m = RE_CAP.search(flat)
-        if m:
-            parts = parse_number_fr(m.group("parts"))
-            prix = parse_number_fr(m.group("prix"))
-            cap_base = parse_number_fr(m.group("cap"))
-            mult = _MULT[m.group("mult").lower()]
-            if cap_base is not None:
-                add(MetricKey.CAPITALISATION, cap_base * mult, "EUR",
-                    Confidence.HAUTE, m.group(0))
-            if prix is not None:
-                add(MetricKey.PRIX_SOUSCRIPTION, prix, "EUR", Confidence.MOYENNE,
-                    m.group(0), note="Déduit du « prix de part » de la formule de capitalisation")
-            if parts is not None:
-                add(MetricKey.NOMBRE_PARTS, parts, "parts", Confidence.HAUTE, m.group(0))
-
-        m = RE_RECONST.search(flat)
-        if m:
-            v = parse_number_fr(m.group("v"))
-            if v is not None:
-                add(MetricKey.VALEUR_RECONSTITUTION, v, "EUR", Confidence.HAUTE, m.group(0))
-
-        m = RE_ACOMPTE.search(flat)
-        if m and int(m.group("q")) == int(period.split("-T")[1]):
-            v = parse_number_fr(m.group("v"))
-            if v is not None:
-                add(MetricKey.ACOMPTE, v, "EUR", Confidence.MOYENNE, m.group(0))
+        self._from_text(content.text, add)
+        self._from_tables(content.table_cells(), add)
+        self._from_words(content.words, add)
 
         # Complète avec A_VERIFIER pour chaque cible non trouvée.
         out = list(found.values())
@@ -179,6 +167,56 @@ class CorumAdapter(SourceAdapter):
                 )
         return out
 
+    # -- Source 1 : texte à plat (phrases auto-portantes) --------------------
+    def _from_text(self, text: str, add: AddFn) -> None:
+        flat = re.sub(r"\s+", " ", text)
+
+        m = RE_CAP.search(flat)
+        if m:
+            cap = parse_number_fr(m.group("cap"))
+            prix = parse_number_fr(m.group("prix"))
+            parts = parse_number_fr(m.group("parts"))
+            if cap is not None:
+                add(MetricKey.CAPITALISATION, cap * _MULT[m.group("mult").lower()],
+                    "EUR", Confidence.HAUTE, m.group(0))
+            if prix is not None:
+                add(MetricKey.PRIX_SOUSCRIPTION, prix, "EUR", Confidence.MOYENNE, m.group(0),
+                    note="Déduit du « prix de part » de la formule de capitalisation")
+            if parts is not None:
+                add(MetricKey.NOMBRE_PARTS, parts, "parts", Confidence.HAUTE, m.group(0))
+
+        for key, rgx in ((MetricKey.VALEUR_RECONSTITUTION, RE_RECONST),
+                         (MetricKey.VALEUR_REALISATION, RE_REAL)):
+            m = rgx.search(flat)
+            if m:
+                v = parse_number_fr(m.group("v"))
+                if v is not None:
+                    add(key, v, "EUR", Confidence.HAUTE, m.group(0))
+
+    # -- Source 2 : cellules de tableaux (auto-portantes) --------------------
+    def _from_tables(self, cells: list[str], add: AddFn) -> None:
+        for cell in cells:
+            m = RE_TD_CELL.search(cell)
+            if m:
+                v = parse_number_fr(m.group("v"))
+                if v is not None:
+                    add(MetricKey.TAUX_DISTRIBUTION, v, "%", Confidence.HAUTE, cell,
+                        override_period=m.group("y"))
+            m = RE_ACOMPTE_CELL.search(cell)
+            if m:
+                v = parse_number_fr(m.group("v"))
+                if v is not None:
+                    add(MetricKey.ACOMPTE, v, "EUR", Confidence.HAUTE, cell)
+
+    # -- Source 3 : positionnel (gros chiffre au-dessus d'un libellé) --------
+    def _from_words(self, words: list[Word], add: AddFn) -> None:
+        for key, label in POSITIONAL:
+            hit = _number_above_label(words, label)
+            if hit is not None:
+                value, raw = hit
+                add(key, value, None, Confidence.MOYENNE, raw,
+                    note="Chiffre du bloc « en un coup d'œil » (association positionnelle)")
+
     # -- Helpers A_VERIFIER ---------------------------------------------------
     def _averifier_all(
         self, entry: ScpiEntry, note: str, source_url: str | None, period: str | None
@@ -191,3 +229,70 @@ class CorumAdapter(SourceAdapter):
             )
             for key in TARGET_KEYS
         ]
+
+
+def _find_label_box(
+    words: list[Word], label: tuple[str, ...]
+) -> tuple[int, float, float, float] | None:
+    """Trouve la 1re occurrence du libellé (mots consécutifs, même ligne).
+
+    Renvoie (page, x0_min, x1_max, top) ou None.
+    """
+    n = len(label)
+    want = [norm(w) for w in label]
+    for i in range(len(words) - n + 1):
+        seq = words[i : i + n]
+        if seq[0]["page"] != seq[-1]["page"]:
+            continue
+        if any(abs(w["top"] - seq[0]["top"]) > 4 for w in seq):
+            continue
+        if [norm(w["text"]) for w in seq] != want:
+            continue
+        return (seq[0]["page"], min(w["x0"] for w in seq),
+                max(w["x1"] for w in seq), seq[0]["top"])
+    return None
+
+
+def _number_above_label(words: list[Word], label: tuple[str, ...]) -> tuple[float, str] | None:
+    """Nombre situé juste au-dessus d'un libellé, aligné horizontalement.
+
+    Défensif : n'associe que les jetons numériques qui recouvrent la plage x du
+    libellé, sur la ligne la plus proche au-dessus. Renvoie None si rien de sûr.
+    """
+    box = _find_label_box(words, label)
+    if box is None:
+        return None
+    page, lx0, lx1, ltop = box
+    above = [
+        w for w in words
+        if w["page"] == page and 6 < (ltop - w["top"]) < 60 and re.match(r"^\d", w["text"])
+    ]
+    overlap = [w for w in above if w["x1"] >= lx0 and w["x0"] <= lx1]
+    if not overlap:
+        return None
+    # Ligne la plus proche au-dessus, prise ENTIÈRE (pour ne pas tronquer un nombre).
+    top_line = max(w["top"] for w in overlap)
+    line = sorted((w for w in above if abs(w["top"] - top_line) <= 4), key=lambda w: w["x0"])
+
+    # Groupes contigus (espace <= 18pt). On ne garde QUE si le groupe qui
+    # recouvre le libellé tient entièrement dans sa plage x (+/-10) : sinon le
+    # nombre déborde sur un callout voisin -> extraction non sûre -> None.
+    runs: list[list[Word]] = [[line[0]]]
+    for w in line[1:]:
+        if w["x0"] - runs[-1][-1]["x1"] <= 18:
+            runs[-1].append(w)
+        else:
+            runs.append([w])
+    target: list[Word] | None = None
+    for run in runs:
+        if any(w in overlap for w in run):
+            if target is not None:
+                return None  # deux groupes recouvrent le libellé -> ambigu
+            target = run
+    if target is None:
+        return None
+    if min(w["x0"] for w in target) < lx0 - 10 or max(w["x1"] for w in target) > lx1 + 10:
+        return None
+    raw = " ".join(w["text"] for w in target)
+    value = parse_number_fr(raw)
+    return (value, raw) if value is not None else None
