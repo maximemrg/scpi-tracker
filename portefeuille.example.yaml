@@ -1,0 +1,47 @@
+# =============================================================================
+# portefeuille.example.yaml — GABARIT à copier en `portefeuille.yaml` (privé).
+# =============================================================================
+# `portefeuille.yaml` n'est PAS committé (données personnelles, voir .gitignore).
+# Une ligne = un achat. Champs :
+#   scpi              : scpi_id du registry (ex. corum_eurion, ncap_regions)
+#   date              : date d'achat AAAA-MM-JJ
+#   nb_parts          : nombre de parts
+#   prix_unitaire     : prix payé par part (€)
+#   frais             : frais totaux de la ligne (€), commission de souscription incluse
+#   propriete         : pleine | nue
+#   duree_demembrement: années (si propriete = nue), sinon null
+#   support           : direct | AV | SCI
+#
+# Le système calcule : valeur courante, PRU, +/- value latente, dividendes
+# encaissés (délai de jouissance appliqué), rendement sur prix de revient,
+# et TRI réel (XIRR). Ce qui manque en base (prix courant, acomptes) est
+# signalé, jamais estimé.
+# =============================================================================
+
+lignes:
+  - scpi: corum_eurion
+    date: 2024-01-15
+    nb_parts: 50
+    prix_unitaire: 200
+    frais: 0            # Corum : pas de commission de souscription
+    propriete: pleine
+    duree_demembrement: null
+    support: direct
+
+  - scpi: ncap_regions
+    date: 2023-06-01
+    nb_parts: 10
+    prix_unitaire: 620
+    frais: 0
+    propriete: pleine
+    duree_demembrement: null
+    support: AV
+
+  - scpi: comete
+    date: 2025-03-10
+    nb_parts: 40
+    prix_unitaire: 250
+    frais: 0
+    propriete: nue         # exemple nue-propriété (démembrement)
+    duree_demembrement: 7
+    support: direct

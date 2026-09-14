@@ -23,6 +23,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from .models import Confidence, MetricKey, Status
+from .portfolio import Agrege, ResultatLigne, compute_portfolio, load_portfolio
 from .registry import Registry
 from .storage import Store
 
@@ -294,27 +295,45 @@ def _sheet_flux(wb: Workbook, store: Store) -> None:
     ws.freeze_panes = "A2"
 
 
-def _sheet_dashboard(wb: Workbook, store: Store) -> None:
+def _sheet_dashboard(wb: Workbook, store: Store, agg: Agrege | None) -> None:
     ws = wb.create_sheet("Dashboard", 0)
     ws["A1"] = "SCPI Tracker — Tableau de bord"
     ws["A1"].font = _TITLE_FONT
-    ws["A3"] = ("Note : la vue portefeuille (valeur, TRI global) sera alimentée "
-               "par portefeuille.yaml.")
-    ws["A3"].font = Font(italic=True, color="808080")
+
+    if agg and agg.montant_investi:
+        ws["A3"] = "Mon portefeuille"
+        ws["A3"].font = Font(bold=True, size=12, color="1F3864")
+        tri = f"{agg.tri_global * 100:.2f} %" if agg.tri_global is not None else "n/d (acomptes)"
+        pf = [
+            ("Montant investi", round(agg.montant_investi, 2)),
+            ("Valeur courante", round(agg.valeur_courante, 2)),
+            ("+/- value latente", round(agg.pv_latente, 2)),
+            ("Dividendes encaissés", round(agg.dividendes_encaisses, 2)),
+            ("TRI global (XIRR)", tri),
+        ]
+        for i, (label, val) in enumerate(pf, start=4):
+            ws.cell(row=i, column=1, value=label).font = Font(bold=True)
+            ws.cell(row=i, column=2, value=val)
+    else:
+        ws["A3"] = ("Vue portefeuille vide : copiez portefeuille.example.yaml en "
+                    "portefeuille.yaml pour l'alimenter.")
+        ws["A3"].font = Font(italic=True, color="808080")
 
     n_scpi = store.conn.execute("SELECT COUNT(*) c FROM scpi").fetchone()["c"]
     n_ok = store.conn.execute("SELECT COUNT(*) c FROM metrics WHERE status='OK'").fetchone()["c"]
     n_av = store.conn.execute(
         "SELECT COUNT(*) c FROM metrics WHERE status='A_VERIFIER'").fetchone()["c"]
+    ws["A10"] = "Couverture des données"
+    ws["A10"].font = Font(bold=True, size=12, color="1F3864")
     stats = [("SCPI suivies", n_scpi), ("Métriques OK", n_ok), ("À vérifier", n_av)]
-    for i, (label, val) in enumerate(stats, start=5):
+    for i, (label, val) in enumerate(stats, start=11):
         ws.cell(row=i, column=1, value=label).font = Font(bold=True)
         ws.cell(row=i, column=2, value=val)
 
     # TD par SCPI (pour un graphique) : dernière valeur OK connue.
-    ws["A10"] = "Taux de distribution par SCPI"
-    ws["A10"].font = Font(bold=True)
-    _header_row(ws, ["SCPI", "TD %"], row=11)
+    ws["A16"] = "Taux de distribution par SCPI"
+    ws["A16"].font = Font(bold=True)
+    _header_row(ws, ["SCPI", "TD %"], row=17)
     td_rows = store.conn.execute(
         """SELECT s.nom, m.value_num FROM scpi s
            JOIN metrics m ON m.scpi_id=s.scpi_id
@@ -323,7 +342,7 @@ def _sheet_dashboard(wb: Workbook, store: Store) -> None:
            ORDER BY m.value_num DESC""",
         (MetricKey.TAUX_DISTRIBUTION,),
     ).fetchall()
-    start = 12
+    start = 18
     for i, row in enumerate(td_rows):
         ws.cell(row=start + i, column=1, value=row["nom"])
         ws.cell(row=start + i, column=2, value=row["value_num"])
@@ -333,24 +352,50 @@ def _sheet_dashboard(wb: Workbook, store: Store) -> None:
         chart.title = "Taux de distribution (dernier connu)"
         chart.type = "bar"
         chart.height = 1.2 * len(td_rows) + 3
-        data = Reference(ws, min_col=2, min_row=11, max_row=end)
-        cats = Reference(ws, min_col=1, min_row=12, max_row=end)
+        data = Reference(ws, min_col=2, min_row=17, max_row=end)
+        cats = Reference(ws, min_col=1, min_row=18, max_row=end)
         chart.add_data(data, titles_from_data=True)
         chart.set_categories(cats)
-        ws.add_chart(chart, "D11")
+        ws.add_chart(chart, "D16")
     ws.column_dimensions["A"].width = 26
     ws.column_dimensions["B"].width = 10
 
 
-def _sheet_portefeuille(wb: Workbook) -> None:
+def _sheet_portefeuille(wb: Workbook, results: list[ResultatLigne]) -> None:
     ws = wb.create_sheet("Portefeuille")
-    ws["A1"] = "Portefeuille — alimenté par portefeuille.yaml (à créer à l'étape dédiée)"
+    ws["A1"] = "Portefeuille — calculé depuis portefeuille.yaml"
     ws["A1"].font = _TITLE_FONT
-    _header_row(ws, ["SCPI", "Date achat", "Nb parts", "Prix unitaire", "Frais",
-                     "Détention", "Démembrement (années)", "Support",
-                     "Valeur courante", "PRU", "+/- value latente", "TRI réel"], row=3)
-    _autofit(ws, [24, 12, 10, 13, 10, 16, 20, 14, 15, 12, 16, 10])
-    ws.freeze_panes = "A4"
+    if not results:
+        ws["A3"] = "Aucune ligne : copiez portefeuille.example.yaml en portefeuille.yaml."
+        ws["A3"].font = Font(italic=True, color="808080")
+        return
+    _header_row(ws, ["SCPI", "Date achat", "Nb parts", "Prix unit.", "Frais",
+                     "Détention", "Démemb. (ans)", "Support", "Investi",
+                     "PRU", "Prix courant", "Valeur courante", "+/- value latente",
+                     "Dividendes", "Rendt/coût %", "TRI réel %", "Notes"], row=3)
+    r = 4
+    for res in results:
+        ln = res.ligne
+        tri = round(res.tri * 100, 2) if res.tri is not None else "—"
+        rdt = round(res.rendement_sur_cout, 2) if res.rendement_sur_cout is not None else "—"
+        vals = [
+            ln.scpi_id, ln.date_achat.isoformat(), ln.nb_parts, ln.prix_unitaire, ln.frais,
+            ln.propriete, ln.demembrement_annees, ln.support,
+            round(res.montant_investi, 2), round(res.pru, 2),
+            res.prix_courant if res.prix_courant is not None else "À VÉRIFIER",
+            round(res.valeur_courante, 2) if res.valeur_courante is not None else "À VÉRIFIER",
+            round(res.pv_latente, 2) if res.pv_latente is not None else "—",
+            round(res.dividendes_encaisses, 2), rdt, tri, " ; ".join(res.notes),
+        ]
+        for i, v in enumerate(vals, start=1):
+            cell = ws.cell(row=r, column=i, value=v)
+            if v == "À VÉRIFIER":
+                cell.fill = _AVERIF_FILL
+                cell.font = Font(italic=True, color="9C5700")
+        r += 1
+    _autofit(ws, [22, 11, 8, 10, 8, 10, 12, 9, 12, 10, 12, 14, 15, 12, 12, 11, 40])
+    ws.freeze_panes = "B4"
+    ws.auto_filter.ref = f"A3:Q{r - 1}"
 
 
 def _autofit(ws: Worksheet, widths: list[int]) -> None:
@@ -359,13 +404,15 @@ def _autofit(ws: Worksheet, widths: list[int]) -> None:
 
 
 def build_workbook(store: Store, path: str, reg: Registry) -> None:
+    lignes = load_portfolio()
+    results, agg = compute_portfolio(store, lignes) if lignes else ([], None)
     wb = Workbook()
     _sheet_comparatif(wb, store)   # devient l'onglet actif renommé
     _sheet_sources(wb, store)
     _sheet_a_verifier(wb, store)
     _sheet_historique(wb, store)
     _sheet_flux(wb, store)
-    _sheet_portefeuille(wb)
-    _sheet_dashboard(wb, store)         # inséré en position 0
+    _sheet_portefeuille(wb, results)
+    _sheet_dashboard(wb, store, agg)    # inséré en position 0
     wb.save(path)
 

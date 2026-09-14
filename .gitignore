@@ -17,6 +17,9 @@ venv/
 /SCPI_tracker.xlsx
 /saisie_manuelle.yaml
 
+# Données personnelles
+/portefeuille.yaml
+
 # Secrets
 .env
 *.json.key
