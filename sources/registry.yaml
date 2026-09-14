@@ -273,23 +273,24 @@ societes_gestion:
   alderan:
     nom: "Alderan"
     domaine: "alderan.fr"
-    verifie: false
-    # Bulletins = "BTI". PDF /wp-content/uploads/AAAA/MM/BTI-{Tn}-AAAA-{Scpi}.pdf
-    # (mois imprévisible) -> SCRAPER la page documentation.
-    strategie_bulletin: scrape_listing
+    verifie: true
+    # SOURCE = fiches HTML (KPI auto-portants « Libellé : valeur »), plus fiables
+    # que les bulletins BTI PDF. Bulletins BTI restent utiles pour l'historique
+    # (/scpi-{scpi}-documentation/, PDF /wp-content/uploads/AAAA/MM/BTI-...).
+    strategie_bulletin: html_site
     scpi:
       activimmo:
         nom: "ActivImmo"
         fiche_url: "https://alderan.fr/scpi-activimmo/"
         documents_url: "https://alderan.fr/scpi-activimmo-documentation/"
-        verifie: false
-        note: "Dividendes versés MENSUELLEMENT depuis 2025 (pas trimestriels)."
+        verifie: true
+        note: "Dividendes versés MENSUELLEMENT depuis 2025 -> acompte en saisie mensuelle."
       comete:
         nom: "Comète"
         fiche_url: "https://alderan.fr/scpi-comete/"
         documents_url: "https://alderan.fr/scpi-comete-documentation/"
-        verifie: false
-        note: "Dividendes versés MENSUELLEMENT depuis 2025 (pas trimestriels)."
+        verifie: true
+        note: "Dividendes versés MENSUELLEMENT depuis 2025 -> acompte en saisie mensuelle."
 
   # ---------------------------------------------------------------------------
   sogenial_immobilier:

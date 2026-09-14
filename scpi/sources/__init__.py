@@ -6,6 +6,7 @@ lui est propre. On enregistre les adaptateurs dans ADAPTERS (clé = sdg_key).
 
 from __future__ import annotations
 
+from .alderan import AlderanAdapter
 from .base import SourceAdapter
 from .corum import CorumAdapter
 from .norma_capital import NormaCapitalAdapter
@@ -15,8 +16,10 @@ ADAPTERS: dict[str, type[SourceAdapter]] = {
     "corum_lepargne": CorumAdapter,
     "sofidy": SofidyAdapter,
     "norma_capital": NormaCapitalAdapter,
+    "alderan": AlderanAdapter,
 }
 
 __all__ = [
-    "ADAPTERS", "SourceAdapter", "CorumAdapter", "SofidyAdapter", "NormaCapitalAdapter",
+    "ADAPTERS", "SourceAdapter", "CorumAdapter", "SofidyAdapter",
+    "NormaCapitalAdapter", "AlderanAdapter",
 ]
