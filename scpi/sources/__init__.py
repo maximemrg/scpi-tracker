@@ -9,6 +9,7 @@ from __future__ import annotations
 from .alderan import AlderanAdapter
 from .base import SourceAdapter
 from .corum import CorumAdapter
+from .fiducial import FiducialAdapter
 from .inter_gestion import InterGestionAdapter
 from .kyaneos import KyaneosAdapter
 from .norma_capital import NormaCapitalAdapter
@@ -23,10 +24,11 @@ ADAPTERS: dict[str, type[SourceAdapter]] = {
     "sogenial_immobilier": SogenialAdapter,
     "inter_gestion_reim": InterGestionAdapter,
     "kyaneos_am": KyaneosAdapter,
+    "fiducial_gerance": FiducialAdapter,
 }
 
 __all__ = [
     "ADAPTERS", "SourceAdapter", "CorumAdapter", "SofidyAdapter",
     "NormaCapitalAdapter", "AlderanAdapter", "SogenialAdapter", "InterGestionAdapter",
-    "KyaneosAdapter",
+    "KyaneosAdapter", "FiducialAdapter",
 ]

@@ -164,17 +164,18 @@ societes_gestion:
   fiducial_gerance:
     nom: "Fiducial Gérance"
     domaine: "fiducial-gerance.fr"
-    verifie: false
-    # Bulletins = "BTI". Liens de téléchargement à ID numériques opaques
-    # (/content/download/606/file/...) -> SCRAPER la page, pas de pattern.
-    strategie_bulletin: scrape_listing
+    verifie: true
+    # SOURCE = fiche HTML, MAIS grille dont l'aplatissement mélange
+    # libellé/valeur -> extraction limitée aux valeurs explicitement délimitées
+    # (retrait, TOF, délai). Le reste -> saisie (ou parsing DOM positionnel).
+    strategie_bulletin: html_site
     scpi:
       selectipierre_2:
         nom: "Selectipierre 2"
         nom_officiel: "Sélectipierre 2 Paris"
         fiche_url: "https://www.fiducial-gerance.fr/investir-en-scpi/nos-scpi/selectipierre-2-paris"
-        documents_url: null
-        verifie: false
+        documents_url: "https://www.fiducial-gerance.fr/investir-en-scpi/nos-scpi/selectipierre-2-paris"
+        verifie: true
 
   # ---------------------------------------------------------------------------
   norma_capital:
