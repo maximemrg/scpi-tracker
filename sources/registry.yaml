@@ -97,19 +97,21 @@ societes_gestion:
   inter_gestion_reim:
     nom: "Inter Gestion REIM"
     domaine: "inter-gestion.com"
-    verifie: false
-    strategie_bulletin: scrape_listing
+    verifie: true
+    # SOURCE = fiches HTML. Bloc « chiffres clés » = VALEUR puis libellé.
+    # Extraction sûre limitée (prix, capi, TRI 10 ans, TD) ; reste -> saisie.
+    strategie_bulletin: html_site
     scpi:
       cristal_rente:
         nom: "Cristal Rente"
         fiche_url: "https://www.inter-gestion.com/offre-scpi/cristal-rente"
-        documents_url: null   # à localiser (onglet documents de la fiche)
-        verifie: false
+        documents_url: "https://www.inter-gestion.com/offre-scpi/cristal-rente"
+        verifie: true
       cristal_life:
         nom: "Cristal Life"
         fiche_url: "https://www.inter-gestion.com/offre-scpi/cristal-life"
-        documents_url: null
-        verifie: false        # slug inféré depuis cristal-rente
+        documents_url: "https://www.inter-gestion.com/offre-scpi/cristal-life"
+        verifie: true
 
   # ---------------------------------------------------------------------------
   swisslife_am_france:
