@@ -1,0 +1,64 @@
+name: Collecte SCPI hebdomadaire
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"        # tous les lundis à 07:00 UTC
+  workflow_dispatch: {}         # déclenchement manuel
+
+permissions:
+  contents: write               # pour committer la base + le classeur
+
+concurrency:
+  group: scpi-collecte
+  cancel-in-progress: false
+
+jobs:
+  collecte:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Contrôles qualité (lint + types + tests)
+        run: make check
+
+      - name: Collecte (toutes les SCPI)
+        run: python -m scpi.cli --db data/scpi.sqlite collect --all
+
+      - name: Régénérer le classeur Excel
+        run: python -m scpi.cli --db data/scpi.sqlite excel --out SCPI_tracker.xlsx
+
+      - name: Résumé Markdown
+        run: python -m scpi.cli --db data/scpi.sqlite summary >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push Google Sheets (si configuré)
+        if: ${{ vars.ENABLE_GSHEETS == 'true' }}
+        env:
+          SCPI_GSHEET_ID: ${{ vars.SCPI_GSHEET_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+        run: |
+          printf '%s' "$GCP_SERVICE_ACCOUNT_JSON" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          pip install -e ".[sheets]"
+          python -m scpi.cli --db data/scpi.sqlite push-sheets
+          rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
+
+      - name: Committer la base et le classeur
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/scpi.sqlite SCPI_tracker.xlsx
+          if git diff --cached --quiet; then
+            echo "Aucun changement à committer."
+          else
+            git commit -m "Collecte SCPI automatique $(date -u +%Y-%m-%d)"
+            git push
+          fi

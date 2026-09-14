@@ -48,7 +48,9 @@ def cmd_collect(args: argparse.Namespace) -> int:
     client = _client(reg)
     with Store(args.db) as store:
         run_id = store.start_run()
-        if args.sdg:
+        if args.all:
+            entries = [e for e in reg.entries.values() if e.sdg_key in ADAPTERS]
+        elif args.sdg:
             entries = reg.by_sdg(args.sdg)
         elif args.scpi_id:
             entry = reg.entries.get(args.scpi_id)
@@ -57,7 +59,7 @@ def cmd_collect(args: argparse.Namespace) -> int:
                 return 2
             entries = [entry]
         else:
-            print("Préciser un <scpi_id> ou --sdg", file=sys.stderr)
+            print("Préciser un <scpi_id>, --sdg ou --all", file=sys.stderr)
             return 2
         total_ok = total_av = 0
         for entry in entries:
@@ -100,6 +102,50 @@ def cmd_excel(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_summary(args: argparse.Namespace) -> int:
+    """Résumé Markdown du dernier run (pour le step summary de la CI)."""
+    with Store(args.db) as store:
+        run = store.conn.execute(
+            "SELECT * FROM runs ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        ok = store.conn.execute("SELECT COUNT(*) c FROM metrics WHERE status='OK'").fetchone()["c"]
+        av = store.conn.execute(
+            "SELECT COUNT(*) c FROM metrics WHERE status='A_VERIFIER'").fetchone()["c"]
+        n_scpi = store.conn.execute("SELECT COUNT(*) c FROM scpi").fetchone()["c"]
+        alerts = store.conn.execute(
+            "SELECT * FROM alerts ORDER BY id DESC LIMIT 50").fetchall()
+        zero = store.conn.execute(
+            """SELECT s.nom FROM scpi s
+               WHERE NOT EXISTS (SELECT 1 FROM metrics m
+                                 WHERE m.scpi_id=s.scpi_id AND m.status='OK')
+               ORDER BY s.nom"""
+        ).fetchall()
+
+    lines = ["# Collecte SCPI", ""]
+    if run:
+        lines.append(f"- Run démarré : {run['started_at']}")
+    lines += [
+        f"- SCPI en base : **{n_scpi}**",
+        f"- Métriques OK : **{ok}** · À vérifier : **{av}**",
+        "",
+        "## Changements détectés (prix / TD)",
+    ]
+    if alerts:
+        lines += [f"- {a['message']}" for a in alerts]
+    else:
+        lines.append("- Aucun changement vs dernière valeur connue.")
+    lines += ["", "## SCPI sans aucune métrique fiable (à investiguer)"]
+    lines += [f"- {z['nom']}" for z in zero] or ["- (aucune)"]
+    print("\n".join(lines))
+    return 0
+
+
+def cmd_push_sheets(args: argparse.Namespace) -> int:
+    """Push optionnel vers Google Sheets (derrière un flag). No-op si non configuré."""
+    from .sheets import push_to_sheets
+    return push_to_sheets(args.db)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="scpi")
     parser.add_argument("--db", default="data/scpi.sqlite")
@@ -108,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     c = sub.add_parser("collect", help="collecte une ou plusieurs SCPI")
     c.add_argument("scpi_id", nargs="?")
     c.add_argument("--sdg", help="collecte toutes les SCPI d'une société de gestion")
+    c.add_argument("--all", action="store_true", help="collecte toutes les SCPI (tous adaptateurs)")
     c.set_defaults(func=cmd_collect)
 
     ls = sub.add_parser("list", help="liste les SCPI du registry")
@@ -124,6 +171,12 @@ def main(argv: list[str] | None = None) -> int:
     ex = sub.add_parser("excel", help="génère SCPI_tracker.xlsx")
     ex.add_argument("--out", default="SCPI_tracker.xlsx")
     ex.set_defaults(func=cmd_excel)
+
+    sm = sub.add_parser("summary", help="résumé Markdown du dernier run (CI)")
+    sm.set_defaults(func=cmd_summary)
+
+    ps = sub.add_parser("push-sheets", help="push Google Sheets (si configuré)")
+    ps.set_defaults(func=cmd_push_sheets)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

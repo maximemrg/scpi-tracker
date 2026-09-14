@@ -8,13 +8,12 @@ venv/
 .ruff_cache/
 .pytest_cache/
 
-# Données locales de dev (la BDD "produit" est committée par la CI, voir README)
-/data/*.sqlite
-/data/*.sqlite-*
+# La BDD "produit" et le classeur SONT versionnés (l'historique est le produit,
+# la CI les committe chaque semaine — cf. README). On ignore seulement le cache
+# HTTP et le gabarit de saisie local.
+/data/*.sqlite-wal
+/data/*.sqlite-shm
 /.http_cache/
-
-# Sorties
-/SCPI_tracker.xlsx
 /saisie_manuelle.yaml
 
 # Données personnelles

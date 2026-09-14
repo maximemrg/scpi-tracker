@@ -44,7 +44,7 @@ strict = true
 warn_unused_ignores = true
 # pdfplumber / bs4 n'exposent pas toujours des stubs complets
 [[tool.mypy.overrides]]
-module = ["pdfplumber.*", "bs4.*", "openpyxl.*"]
+module = ["pdfplumber.*", "bs4.*", "openpyxl.*", "gspread.*", "google.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
