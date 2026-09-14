@@ -7,6 +7,7 @@ lui est propre. On enregistre les adaptateurs dans ADAPTERS (clé = sdg_key).
 from __future__ import annotations
 
 from .alderan import AlderanAdapter
+from .arkea import ArkeaAdapter
 from .base import SourceAdapter
 from .corum import CorumAdapter
 from .fiducial import FiducialAdapter
@@ -27,10 +28,11 @@ ADAPTERS: dict[str, type[SourceAdapter]] = {
     "kyaneos_am": KyaneosAdapter,
     "fiducial_gerance": FiducialAdapter,
     "perial_am": PerialAdapter,
+    "arkea_reim": ArkeaAdapter,
 }
 
 __all__ = [
     "ADAPTERS", "SourceAdapter", "CorumAdapter", "SofidyAdapter",
     "NormaCapitalAdapter", "AlderanAdapter", "SogenialAdapter", "InterGestionAdapter",
-    "KyaneosAdapter", "FiducialAdapter", "PerialAdapter",
+    "KyaneosAdapter", "FiducialAdapter", "PerialAdapter", "ArkeaAdapter",
 ]

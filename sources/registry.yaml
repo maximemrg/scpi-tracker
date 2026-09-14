@@ -237,21 +237,24 @@ societes_gestion:
   arkea_reim:
     nom: "Arkéa Real Estate Investment Management"
     domaine: "arkea-reim.com"
-    verifie: false
-    strategie_bulletin: scrape_listing
+    verifie: true
+    # SOURCE = fiches HTML. ATTENTION : tuiles TOF/immeubles affichées à 0
+    # (placeholder JS) -> non extraites. Extraits : capitalisation, valeur de
+    # retrait, commission de gestion, délai de jouissance.
+    strategie_bulletin: html_site
     scpi:
       transitions_europe:
         nom: "Transitions Europe"
         note: 'Le brief l''appelle "Arkéa Transitions Europe" ; nom réel = "Transitions Europe".'
         fiche_url: "https://www.arkea-reim.com/immobilier/pa_89367/scpi-transitions-europe"
-        documents_url: null
-        verifie: false
+        documents_url: "https://www.arkea-reim.com/immobilier/pa_89367/scpi-transitions-europe"
+        verifie: true
       momentime:
         nom: "MomenTime"
-        note: 'SdG = Arkéa REIM (résout le "À IDENTIFIER" du brief). Lancée fin 2024 / janv. 2025 (date exacte à confirmer).'
-        fiche_url: null   # pages news trouvées, page produit à localiser
-        documents_url: null
-        verifie: false
+        note: 'SdG = Arkéa REIM (résout le "À IDENTIFIER" du brief). Fiche pa_92423.'
+        fiche_url: "https://www.arkea-reim.com/immobilier/pa_92423/scpi-momentime"
+        documents_url: "https://www.arkea-reim.com/immobilier/pa_92423/scpi-momentime"
+        verifie: true
 
   # ---------------------------------------------------------------------------
   sofidy:
