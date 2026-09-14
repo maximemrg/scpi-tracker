@@ -209,21 +209,23 @@ societes_gestion:
   kyaneos_am:
     nom: "Kyaneos Asset Management"
     domaine: "kyaneosam.com"
-    verifie: false
-    strategie_bulletin: scrape_listing
+    verifie: true
+    # SOURCE = fiche HTML (prix, capitalisation, associés, délai de jouissance).
+    strategie_bulletin: html_site
     scpi:
       kyaneos_pierre:
         nom: "Kyaneos Pierre"
         fiche_url: "https://kyaneosam.com/kyaneos-pierre/"
         documents_url: "https://kyaneosam.com/kyaneos-pierre/"  # docs listés sur la fiche
-        verifie: false
+        verifie: true
       kyaneos_denormandie_5:
         nom: "Kyaneos Denormandie 5"
-        fiche_url: "https://kyaneosam.com/kyaneos-denormandie-5/"
-        documents_url: "https://kyaneosam.com/kyaneos-denormandie-5/"
-        verifie: false   # série 1..4 confirmée ; "5" à confirmer (existence)
-        # ALERTE : SCPI fiscale (Denormandie), PAS une SCPI de rendement.
-        # Beaucoup de métriques (TD, TOF, acomptes) N'ONT PAS DE SENS ici.
+        fiche_url: null   # /kyaneos-denormandie-5/ = HTTP 404 (série visible jusqu'à 4)
+        documents_url: null
+        verifie: false
+        # ALERTE : SCPI fiscale (Denormandie), PAS une SCPI de rendement, ET URL
+        # non trouvée -> A_VERIFIER complet, saisie manuelle. À confirmer :
+        # existe-t-elle sous un autre nom/slug ?
 
   # ---------------------------------------------------------------------------
   arkea_reim:

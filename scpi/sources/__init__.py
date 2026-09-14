@@ -10,6 +10,7 @@ from .alderan import AlderanAdapter
 from .base import SourceAdapter
 from .corum import CorumAdapter
 from .inter_gestion import InterGestionAdapter
+from .kyaneos import KyaneosAdapter
 from .norma_capital import NormaCapitalAdapter
 from .sofidy import SofidyAdapter
 from .sogenial import SogenialAdapter
@@ -21,9 +22,11 @@ ADAPTERS: dict[str, type[SourceAdapter]] = {
     "alderan": AlderanAdapter,
     "sogenial_immobilier": SogenialAdapter,
     "inter_gestion_reim": InterGestionAdapter,
+    "kyaneos_am": KyaneosAdapter,
 }
 
 __all__ = [
     "ADAPTERS", "SourceAdapter", "CorumAdapter", "SofidyAdapter",
     "NormaCapitalAdapter", "AlderanAdapter", "SogenialAdapter", "InterGestionAdapter",
+    "KyaneosAdapter",
 ]
