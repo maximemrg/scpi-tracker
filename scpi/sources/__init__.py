@@ -11,15 +11,17 @@ from .base import SourceAdapter
 from .corum import CorumAdapter
 from .norma_capital import NormaCapitalAdapter
 from .sofidy import SofidyAdapter
+from .sogenial import SogenialAdapter
 
 ADAPTERS: dict[str, type[SourceAdapter]] = {
     "corum_lepargne": CorumAdapter,
     "sofidy": SofidyAdapter,
     "norma_capital": NormaCapitalAdapter,
     "alderan": AlderanAdapter,
+    "sogenial_immobilier": SogenialAdapter,
 }
 
 __all__ = [
     "ADAPTERS", "SourceAdapter", "CorumAdapter", "SofidyAdapter",
-    "NormaCapitalAdapter", "AlderanAdapter",
+    "NormaCapitalAdapter", "AlderanAdapter", "SogenialAdapter",
 ]

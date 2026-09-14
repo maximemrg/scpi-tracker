@@ -296,23 +296,24 @@ societes_gestion:
   sogenial_immobilier:
     nom: "Sogenial Immobilier"
     domaine: "sogenial.fr"
-    verifie: false
-    # Une page par bulletin : sogenial.fr/document/bulletin-trimestriel-{n}t-AAAA-{scpi}/
-    # -> SCRAPER la rubrique SCPI / documents.
-    strategie_bulletin: scrape_listing
+    verifie: true
+    # SOURCE = fiches HTML (KPI structurés : TD 2025, TRI 5 ans, valeur de
+    # retrait, capitalisation, délai de jouissance). Bulletins par page
+    # sogenial.fr/document/... utiles pour l'historique.
+    strategie_bulletin: html_site
     scpi:
       coeur_davenir:
         nom: "Cœur d'Avenir"
         fiche_url: "https://www.sogenial.fr/societe/scpi-coeur-davenir/"
-        documents_url: null
-        verifie: false
+        documents_url: "https://www.sogenial.fr/societe/scpi-coeur-davenir/"
+        verifie: false   # existence de la fiche à confirmer à la collecte
       coeur_deurope:
         nom: "Cœur d'Europe"
         fiche_url: "https://www.sogenial.fr/societe/scpi-coeur-deurope/"
-        documents_url: null
-        verifie: false
+        documents_url: "https://www.sogenial.fr/societe/scpi-coeur-deurope/"
+        verifie: true
       coeur_de_regions:
         nom: "Cœur de Régions"
         fiche_url: "https://www.sogenial.fr/societe/scpi-coeur-des-regions/"  # slug "des-regions"
-        documents_url: null
-        verifie: false
+        documents_url: "https://www.sogenial.fr/societe/scpi-coeur-des-regions/"
+        verifie: true
