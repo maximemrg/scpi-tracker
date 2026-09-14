@@ -118,6 +118,9 @@ societes_gestion:
     verifie: false
     # PDF à pattern PRÉDICTIBLE (rare, appréciable) :
     #  .../scpi-pierre-capitale/bulletin-trimestriel/AAAA/Bulletin_Trimestriel_SCPI_ESG_Pierre_Capitale_T{n}_AAAA.pdf
+    # BLOCAGE (2026-09-14) : le site renvoie HTTP 403 à un client non-navigateur
+    # (requests), alors que robots.txt n'interdit rien. Options : récupération
+    # via navigateur réel, ou saisie manuelle. À trancher.
     strategie_bulletin: url_pattern_puis_verif
     scpi:
       esg_pierre_capitale:
@@ -248,15 +251,21 @@ societes_gestion:
     # mais AAAA/MM = date de mise en ligne (imprévisible) -> SCRAPER
     # la page /documentation (filtrable par fonds).
     strategie_bulletin: scrape_listing
+    # Bulletins bien listés (anchor "Bulletin Trimestriel - Tn AAAA"), historique
+    # profond (jusqu'à 2018 pour Immorente -> utile pour l'onglet Historique).
+    # MAIS, comme Corum : chiffres clés en encarts entremêlés + certains nombres
+    # en POLICE VECTORISÉE non extractible (glyphes (cid:..)) -> extracteur
+    # positionnel Sofidy nécessaire + détection cid -> A_VERIFIER.
     scpi:
       immorente:
         nom: "Immorente"
         fiche_url: "https://www.sofidy.com/documentation/"
-        exemple_bulletin_verifie: "https://www.sofidy.com/app/uploads/2025/11/immorente-bulletin-trimestriel-3t25.pdf"
-        verifie: false
+        documents_url: "https://www.sofidy.com/documentation/"
+        verifie: true   # page listing Immorente confirmée (server-rendered)
       sofidy_europe_invest:
         nom: "Sofidy Europe Invest"
         fiche_url: "https://www.sofidy.com/documentation/"
+        documents_url: null   # listing SEI à localiser (bulletins = sei-*.pdf)
         verifie: false
 
   # ---------------------------------------------------------------------------
