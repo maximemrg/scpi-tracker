@@ -1,0 +1,52 @@
+[project]
+name = "scpi-tracker"
+version = "0.1.0"
+description = "Collecte, historise et restitue les paramètres clés de SCPI à partir de sources primaires."
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "pdfplumber>=0.11",
+    "PyYAML>=6.0",
+    "python-dateutil>=2.9",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8.0",
+    "types-requests",
+    "types-PyYAML",
+    "types-python-dateutil",
+]
+# Push Google Sheets optionnel (derrière un flag de config, voir README)
+sheets = ["gspread>=6.0", "google-auth>=2.30"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["scpi*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+# pdfplumber / bs4 n'exposent pas toujours des stubs complets
+[[tool.mypy.overrides]]
+module = ["pdfplumber.*", "bs4.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

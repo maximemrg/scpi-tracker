@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Données locales de dev (la BDD "produit" est committée par la CI, voir README)
+/data/*.sqlite
+/data/*.sqlite-*
+/.http_cache/
+
+# Sorties
+/SCPI_tracker.xlsx
+
+# Secrets
+.env
+*.json.key
+service_account*.json

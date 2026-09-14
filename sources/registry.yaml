@@ -1,0 +1,304 @@
+# =============================================================================
+# registry.yaml — Registre des SOURCES PRIMAIRES (ÉTAPE 0)
+# =============================================================================
+# Statut : BROUILLON v0 — À VALIDER avant tout développement.
+#
+# Convention de confiance des URLs de ce registre :
+#   verifie: true   -> URL réellement ouverte et confirmée pendant la recherche
+#   verifie: false  -> URL inférée d'un pattern / de résultats de recherche,
+#                      NON encore ouverte -> à confirmer par un premier fetch.
+#
+# Rappel contrainte : les URLs listées ici doivent toutes pointer vers des
+# SOURCES PRIMAIRES (site de la société de gestion, bulletins, docs
+# réglementaires). Les agrégateurs commerciaux sont listés uniquement en
+# "sources_interdites" pour être bloqués côté code.
+# =============================================================================
+
+meta:
+  version: 0
+  date_recherche: "2026-09-14"
+  politique_collecte:
+    user_agent: "SCPI-Tracker/0.1 (+maximemeurgey@gmail.com)"
+    delai_min_secondes: 2
+    respect_robots_txt: true
+    max_requetes_par_domaine_par_run: 30
+  # Domaines JAMAIS utilisés comme source de données (CGU / fraîcheur).
+  # Serviront de blocklist dans le code.
+  sources_interdites:
+    - meilleurescpi.com
+    - primaliance.com
+    - francescpi.com
+    - france-scpi.com
+    - louveinvest.com
+    - ramify.fr
+    - portail-scpi.fr
+    - centraledesscpi.com
+    - scpi-lab.com
+    - scpi-invest.fr
+    - haussmann-patrimoine.fr
+    - ideal-investisseur.fr
+    - weelim.fr
+    - aeterniapatrimoine.fr
+    - epargnoo.com
+    - invest-aide.fr
+    - argent-et-salaire.com
+    - zoominvest.fr
+    - francetransactions.com
+    - boursorama.com          # relais de presse, pas source primaire
+    - pierrepapier.fr         # relais de presse, pas source primaire
+
+# =============================================================================
+# Sociétés de gestion (un adaptateur = une entrée ici)
+# =============================================================================
+societes_gestion:
+
+  # ---------------------------------------------------------------------------
+  corum_lepargne:
+    nom: "Corum L'Épargne"
+    domaine: "corum.fr"
+    verifie: true
+    # Fiche produit : corum.fr/nos-scpi/{slug}
+    # Documents     : corum.fr/nos-scpi/{slug}/documents  (VÉRIFIÉ sur Eurion)
+    # Les bulletins s'appellent "Fil d'Actualités" (T1..T4). Noms de fichiers
+    # non prédictibles (/sites/default/files/AAAA-MM/...) -> SCRAPER la page
+    # /documents, ne pas deviner l'URL du PDF.
+    strategie_bulletin: scrape_listing
+    # NOTE PILOTE (T2-2026) : les « Fil d'Actualités » d'Origin et XL sont des
+    # plaquettes 100 % image (aucune couche texte) -> non parsables sans OCR
+    # (non tenté par choix). Eurion et USA sont en texte exploitable.
+    scpi:
+      corum_origin:
+        nom: "Corum Origin"
+        fiche_url: "https://www.corum.fr/nos-scpi/corum-origin"
+        documents_url: "https://www.corum.fr/nos-scpi/corum-origin/documents"
+        verifie: true
+        note: "Bulletin T2-2026 = PDF image (A_VERIFIER). Piste : parser le « Rapport périodique »."
+      corum_xl:
+        nom: "Corum XL"
+        fiche_url: "https://www.corum.fr/nos-scpi/corum-xl"
+        documents_url: "https://www.corum.fr/nos-scpi/corum-xl/documents"
+        verifie: true
+        note: "Bulletin T2-2026 = PDF image (A_VERIFIER). Piste : parser le « Rapport périodique »."
+      corum_eurion:
+        nom: "Corum Eurion"
+        fiche_url: "https://www.corum.fr/nos-scpi/eurion"
+        documents_url: "https://www.corum.fr/nos-scpi/eurion/documents"
+        verifie: true
+      corum_usa:
+        nom: "Corum USA"
+        fiche_url: "https://www.corum.fr/nos-scpi/corum-usa"
+        documents_url: "https://www.corum.fr/nos-scpi/corum-usa/documents"
+        verifie: true
+
+  # ---------------------------------------------------------------------------
+  inter_gestion_reim:
+    nom: "Inter Gestion REIM"
+    domaine: "inter-gestion.com"
+    verifie: false
+    strategie_bulletin: scrape_listing
+    scpi:
+      cristal_rente:
+        nom: "Cristal Rente"
+        fiche_url: "https://www.inter-gestion.com/offre-scpi/cristal-rente"
+        documents_url: null   # à localiser (onglet documents de la fiche)
+        verifie: false
+      cristal_life:
+        nom: "Cristal Life"
+        fiche_url: "https://www.inter-gestion.com/offre-scpi/cristal-life"
+        documents_url: null
+        verifie: false        # slug inféré depuis cristal-rente
+
+  # ---------------------------------------------------------------------------
+  swisslife_am_france:
+    nom: "Swiss Life Asset Managers France"
+    domaine: "fr.swisslife-am.com"
+    verifie: false
+    # PDF à pattern PRÉDICTIBLE (rare, appréciable) :
+    #  .../scpi-pierre-capitale/bulletin-trimestriel/AAAA/Bulletin_Trimestriel_SCPI_ESG_Pierre_Capitale_T{n}_AAAA.pdf
+    strategie_bulletin: url_pattern_puis_verif
+    scpi:
+      esg_pierre_capitale:
+        nom: "ESG Pierre Capitale"
+        fiche_url: "https://fr.swisslife-am.com/fr/particuliers/documentation/scpi-pierre-capitale.html"
+        bulletin_pattern: "https://fr.swisslife-am.com/content/dam/slamfr/internet/particuliers/documentation---retail/scpi-pierre-capitale/bulletin-trimestriel/{annee}/Bulletin_Trimestriel_SCPI_ESG_Pierre_Capitale_T{trimestre}_{annee}.pdf"
+        exemple_verifie: "https://fr.swisslife-am.com/content/dam/slamfr/internet/particuliers/documentation---retail/scpi-pierre-capitale/bulletin-trimestriel/2025/Bulletin_Trimestriel_SCPI_ESG_Pierre_Capitale_T4_2025.pdf"
+        verifie: false
+
+  # ---------------------------------------------------------------------------
+  perial_am:
+    nom: "Perial Asset Management"
+    domaine: "perial.com"
+    verifie: false
+    strategie_bulletin: scrape_listing
+    scpi:
+      pfo:
+        nom: "PFO"
+        fiche_url: "https://www.perial.com/scpi/pfo"
+        documents_url: null
+        verifie: false
+      pfo2:
+        nom: "PFO2"
+        fiche_url: "https://www.perial.com/scpi/perial-o2"   # marque "PERIAL O2"
+        documents_url: null
+        verifie: false
+      pf_grand_paris:
+        nom: "PF Grand Paris"
+        fiche_url: "https://www.perial.com/scpi/pf-grand-paris"
+        documents_url: null
+        verifie: false
+      pf_hospitalite_europe:
+        nom: "PF Hospitalité Europe"
+        fiche_url: "https://www.perial.com/scpi/pf-hospitalite-europe"
+        documents_url: null
+        verifie: false
+
+  # ---------------------------------------------------------------------------
+  fiducial_gerance:
+    nom: "Fiducial Gérance"
+    domaine: "fiducial-gerance.fr"
+    verifie: false
+    # Bulletins = "BTI". Liens de téléchargement à ID numériques opaques
+    # (/content/download/606/file/...) -> SCRAPER la page, pas de pattern.
+    strategie_bulletin: scrape_listing
+    scpi:
+      selectipierre_2:
+        nom: "Selectipierre 2"
+        nom_officiel: "Sélectipierre 2 Paris"
+        fiche_url: "https://www.fiducial-gerance.fr/investir-en-scpi/nos-scpi/selectipierre-2-paris"
+        documents_url: null
+        verifie: false
+
+  # ---------------------------------------------------------------------------
+  norma_capital:
+    nom: "Norma Capital"
+    domaine: "normacapital.fr"    # ATTENTION : sans tiret
+    verifie: false
+    # Bulletins sous /documentation/{slug-du-bulletin}/ (une page par bulletin).
+    # -> SCRAPER la liste /documentation.
+    # NOTE : certaines pièces peuvent être derrière l'espace associé (login).
+    strategie_bulletin: scrape_listing
+    scpi:
+      ncap_regions:
+        nom: "NCap Régions"
+        alias: ["Vendôme Régions"]   # ancien nom
+        fiche_url: null
+        documents_url: null
+        verifie: false
+      ncap_continent:
+        nom: "NCap Continent"
+        fiche_url: null
+        documents_url: null
+        verifie: false
+      fair_invest:
+        nom: "Fair Invest"
+        alias: ["NCap Education Santé"]  # A CONFIRMER : renommage signalé
+        fiche_url: null
+        documents_url: null
+        verifie: false
+
+  # ---------------------------------------------------------------------------
+  kyaneos_am:
+    nom: "Kyaneos Asset Management"
+    domaine: "kyaneosam.com"
+    verifie: false
+    strategie_bulletin: scrape_listing
+    scpi:
+      kyaneos_pierre:
+        nom: "Kyaneos Pierre"
+        fiche_url: "https://kyaneosam.com/kyaneos-pierre/"
+        documents_url: "https://kyaneosam.com/kyaneos-pierre/"  # docs listés sur la fiche
+        verifie: false
+      kyaneos_denormandie_5:
+        nom: "Kyaneos Denormandie 5"
+        fiche_url: "https://kyaneosam.com/kyaneos-denormandie-5/"
+        documents_url: "https://kyaneosam.com/kyaneos-denormandie-5/"
+        verifie: false   # série 1..4 confirmée ; "5" à confirmer (existence)
+        # ALERTE : SCPI fiscale (Denormandie), PAS une SCPI de rendement.
+        # Beaucoup de métriques (TD, TOF, acomptes) N'ONT PAS DE SENS ici.
+
+  # ---------------------------------------------------------------------------
+  arkea_reim:
+    nom: "Arkéa Real Estate Investment Management"
+    domaine: "arkea-reim.com"
+    verifie: false
+    strategie_bulletin: scrape_listing
+    scpi:
+      transitions_europe:
+        nom: "Transitions Europe"
+        note: 'Le brief l''appelle "Arkéa Transitions Europe" ; nom réel = "Transitions Europe".'
+        fiche_url: "https://www.arkea-reim.com/immobilier/pa_89367/scpi-transitions-europe"
+        documents_url: null
+        verifie: false
+      momentime:
+        nom: "MomenTime"
+        note: 'SdG = Arkéa REIM (résout le "À IDENTIFIER" du brief). Lancée fin 2024 / janv. 2025 (date exacte à confirmer).'
+        fiche_url: null   # pages news trouvées, page produit à localiser
+        documents_url: null
+        verifie: false
+
+  # ---------------------------------------------------------------------------
+  sofidy:
+    nom: "Sofidy"
+    domaine: "sofidy.com"
+    verifie: false
+    # PDF sous /app/uploads/AAAA/MM/{scpi}-bulletin-trimestriel-{n}t{aa}.pdf
+    # mais AAAA/MM = date de mise en ligne (imprévisible) -> SCRAPER
+    # la page /documentation (filtrable par fonds).
+    strategie_bulletin: scrape_listing
+    scpi:
+      immorente:
+        nom: "Immorente"
+        fiche_url: "https://www.sofidy.com/documentation/"
+        exemple_bulletin_verifie: "https://www.sofidy.com/app/uploads/2025/11/immorente-bulletin-trimestriel-3t25.pdf"
+        verifie: false
+      sofidy_europe_invest:
+        nom: "Sofidy Europe Invest"
+        fiche_url: "https://www.sofidy.com/documentation/"
+        verifie: false
+
+  # ---------------------------------------------------------------------------
+  alderan:
+    nom: "Alderan"
+    domaine: "alderan.fr"
+    verifie: false
+    # Bulletins = "BTI". PDF /wp-content/uploads/AAAA/MM/BTI-{Tn}-AAAA-{Scpi}.pdf
+    # (mois imprévisible) -> SCRAPER la page documentation.
+    strategie_bulletin: scrape_listing
+    scpi:
+      activimmo:
+        nom: "ActivImmo"
+        fiche_url: "https://alderan.fr/scpi-activimmo/"
+        documents_url: "https://alderan.fr/scpi-activimmo-documentation/"
+        verifie: false
+        note: "Dividendes versés MENSUELLEMENT depuis 2025 (pas trimestriels)."
+      comete:
+        nom: "Comète"
+        fiche_url: "https://alderan.fr/scpi-comete/"
+        documents_url: "https://alderan.fr/scpi-comete-documentation/"
+        verifie: false
+        note: "Dividendes versés MENSUELLEMENT depuis 2025 (pas trimestriels)."
+
+  # ---------------------------------------------------------------------------
+  sogenial_immobilier:
+    nom: "Sogenial Immobilier"
+    domaine: "sogenial.fr"
+    verifie: false
+    # Une page par bulletin : sogenial.fr/document/bulletin-trimestriel-{n}t-AAAA-{scpi}/
+    # -> SCRAPER la rubrique SCPI / documents.
+    strategie_bulletin: scrape_listing
+    scpi:
+      coeur_davenir:
+        nom: "Cœur d'Avenir"
+        fiche_url: "https://www.sogenial.fr/societe/scpi-coeur-davenir/"
+        documents_url: null
+        verifie: false
+      coeur_deurope:
+        nom: "Cœur d'Europe"
+        fiche_url: "https://www.sogenial.fr/societe/scpi-coeur-deurope/"
+        documents_url: null
+        verifie: false
+      coeur_de_regions:
+        nom: "Cœur de Régions"
+        fiche_url: "https://www.sogenial.fr/societe/scpi-coeur-des-regions/"  # slug "des-regions"
+        documents_url: null
+        verifie: false
