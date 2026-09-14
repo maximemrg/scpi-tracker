@@ -28,7 +28,10 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Contrôles qualité (lint + types + tests)
-        run: make check
+        run: |
+          ruff check scpi tests
+          mypy scpi
+          pytest -q
 
       - name: Collecte (toutes les SCPI)
         run: python -m scpi.cli --db data/scpi.sqlite collect --all
