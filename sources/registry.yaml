@@ -136,29 +136,34 @@ societes_gestion:
   perial_am:
     nom: "Perial Asset Management"
     domaine: "perial.com"
-    verifie: false
-    strategie_bulletin: scrape_listing
+    verifie: true
+    # SOURCE = fiches HTML (Webflow), MAIS grille dont l'aplatissement apparie
+    # mal la plupart des tuiles -> seul le TD 2025 est fiable. Reste -> saisie.
+    # Rebranding Perial : slugs perial-o2 / perial-grand-paris /
+    # perial-hospitalite-europe. 2 SCPI en plus hors périmètre :
+    # perial-opportunites-europe, perial-opportunites-territoires.
+    strategie_bulletin: html_site
     scpi:
       pfo:
         nom: "PFO"
         fiche_url: "https://www.perial.com/scpi/pfo"
-        documents_url: null
-        verifie: false
+        documents_url: "https://www.perial.com/scpi/pfo"
+        verifie: true
       pfo2:
         nom: "PFO2"
         fiche_url: "https://www.perial.com/scpi/perial-o2"   # marque "PERIAL O2"
-        documents_url: null
-        verifie: false
+        documents_url: "https://www.perial.com/scpi/perial-o2"
+        verifie: true
       pf_grand_paris:
         nom: "PF Grand Paris"
-        fiche_url: "https://www.perial.com/scpi/pf-grand-paris"
-        documents_url: null
-        verifie: false
+        fiche_url: "https://www.perial.com/scpi/perial-grand-paris"
+        documents_url: "https://www.perial.com/scpi/perial-grand-paris"
+        verifie: true
       pf_hospitalite_europe:
         nom: "PF Hospitalité Europe"
-        fiche_url: "https://www.perial.com/scpi/pf-hospitalite-europe"
-        documents_url: null
-        verifie: false
+        fiche_url: "https://www.perial.com/scpi/perial-hospitalite-europe"
+        documents_url: "https://www.perial.com/scpi/perial-hospitalite-europe"
+        verifie: true
 
   # ---------------------------------------------------------------------------
   fiducial_gerance:
