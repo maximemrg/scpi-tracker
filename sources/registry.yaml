@@ -178,29 +178,30 @@ societes_gestion:
   norma_capital:
     nom: "Norma Capital"
     domaine: "normacapital.fr"    # ATTENTION : sans tiret
-    verifie: false
-    # Bulletins sous /documentation/{slug-du-bulletin}/ (une page par bulletin).
-    # -> SCRAPER la liste /documentation.
-    # NOTE : certaines pièces peuvent être derrière l'espace associé (login).
-    strategie_bulletin: scrape_listing
+    verifie: true
+    # SOURCE = SITE HTML (pas le PDF) : le portail /documentation/ est en JS et
+    # les PDF peu lisibles ; en revanche la page d'accueil + les pages SCPI
+    # exposent des KPI structurés server-rendered (TD 2025, TRI 5 ans, capi,
+    # prix). L'adaptateur scrape le HTML. Le reste -> saisie manuelle.
+    strategie_bulletin: html_site
     scpi:
       ncap_regions:
         nom: "NCap Régions"
-        alias: ["Vendôme Régions"]   # ancien nom
-        fiche_url: null
-        documents_url: null
-        verifie: false
+        alias: ["Vendôme Régions"]   # ancien nom (confirmé)
+        fiche_url: "https://www.normacapital.fr/nos-offres-grand-public/scpi-vendome-regions/"
+        documents_url: "https://www.normacapital.fr/nos-offres-grand-public/scpi-vendome-regions/"
+        verifie: true
       ncap_continent:
         nom: "NCap Continent"
-        fiche_url: null
-        documents_url: null
-        verifie: false
+        fiche_url: "https://www.normacapital.fr/nos-offres-grand-public/scpi-ncap-continent/"
+        documents_url: "https://www.normacapital.fr/nos-offres-grand-public/scpi-ncap-continent/"
+        verifie: true
       fair_invest:
         nom: "Fair Invest"
-        alias: ["NCap Education Santé"]  # A CONFIRMER : renommage signalé
-        fiche_url: null
-        documents_url: null
-        verifie: false
+        alias: ["NCap Education Santé"]  # renommage CONFIRMÉ (nom actuel)
+        fiche_url: "https://www.normacapital.fr/nos-offres-grand-public/scpi-ncap-education-sante/"
+        documents_url: "https://www.normacapital.fr/nos-offres-grand-public/scpi-ncap-education-sante/"
+        verifie: true
 
   # ---------------------------------------------------------------------------
   kyaneos_am:
