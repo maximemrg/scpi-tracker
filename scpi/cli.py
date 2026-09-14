@@ -12,7 +12,7 @@ import argparse
 import sys
 
 from .http import PoliteClient
-from .models import now_utc
+from .models import Metric, now_utc
 from .registry import Registry, ScpiEntry, load_registry
 from .sources import ADAPTERS
 from .storage import Store, persist_run
@@ -28,19 +28,33 @@ def _client(reg: Registry) -> PoliteClient:
     )
 
 
-def _collect_entry(reg: Registry, client: PoliteClient, store: Store, entry: ScpiEntry) -> None:
+def _collect_entry(
+    reg: Registry, client: PoliteClient, store: Store, entry: ScpiEntry
+) -> tuple[int, int, bool]:
+    """Collecte une SCPI. Retourne (nb_ok, nb_a_verifier, en_erreur).
+
+    Une erreur (réseau, site bloqué, changement de format) n'interrompt PAS le
+    run : elle est journalisée en base comme A_VERIFIER pour rester visible.
+    """
     adapter_cls = ADAPTERS.get(entry.sdg_key)
     if adapter_cls is None:
         print(f"  [SKIP] {entry.scpi_id}: pas d'adaptateur pour {entry.sdg_key}")
-        return
+        return 0, 0, False
     store.upsert_scpi(entry.scpi_id, entry.nom, entry.sdg_key, entry.sdg_nom, entry.domaine)
     adapter = adapter_cls(client, collected_at=now_utc())
-    metrics = adapter.fetch_metrics(entry)
+    try:
+        metrics = adapter.fetch_metrics(entry)
+    except Exception as exc:  # noqa: BLE001 — on veut isoler chaque SCPI
+        src = entry.fiche_url or entry.documents_url or f"https://{entry.domaine}"
+        store.insert_metrics([Metric.a_verifier(
+            scpi_id=entry.scpi_id, metric_key="_collecte", source_url=src,
+            collected_at=now_utc(), note=f"Échec de collecte : {type(exc).__name__}: {exc}",
+        )])
+        print(f"  [ERREUR] {entry.scpi_id}: {type(exc).__name__}: {exc}")
+        return 0, 1, True
     ok, av, alerts = persist_run(store, metrics)
     print(f"  {entry.scpi_id}: {ok} OK, {av} A_VERIFIER, {len(alerts)} alerte(s)")
-    for m in metrics:
-        if m.status == "A_VERIFIER":
-            print(f"      A_VERIFIER {m.metric_key}: {m.note}")
+    return ok, av, False
 
 
 def cmd_collect(args: argparse.Namespace) -> int:
@@ -61,11 +75,16 @@ def cmd_collect(args: argparse.Namespace) -> int:
         else:
             print("Préciser un <scpi_id>, --sdg ou --all", file=sys.stderr)
             return 2
-        total_ok = total_av = 0
+        total_ok = total_av = total_err = 0
         for entry in entries:
             print(f"- {entry.nom} ({entry.scpi_id})")
-            _collect_entry(reg, client, store, entry)
-        store.finish_run(run_id, total_ok, total_av, 0, f"{len(entries)} SCPI")
+            ok, av, errored = _collect_entry(reg, client, store, entry)
+            total_ok += ok
+            total_av += av
+            total_err += int(errored)
+        store.finish_run(run_id, total_ok, total_av, total_err,
+                         f"{len(entries)} SCPI, {total_err} erreur(s)")
+        print(f"\nTotal : {total_ok} OK, {total_av} A_VERIFIER, {total_err} erreur(s)")
     return 0
 
 
@@ -127,9 +146,10 @@ def cmd_summary(args: argparse.Namespace) -> int:
     lines += [
         f"- SCPI en base : **{n_scpi}**",
         f"- Métriques OK : **{ok}** · À vérifier : **{av}**",
-        "",
-        "## Changements détectés (prix / TD)",
     ]
+    if run and run["error_count"]:
+        lines.append(f"- ⚠️ Erreurs de collecte : **{run['error_count']}**")
+    lines += ["", "## Changements détectés (prix / TD)"]
     if alerts:
         lines += [f"- {a['message']}" for a in alerts]
     else:
