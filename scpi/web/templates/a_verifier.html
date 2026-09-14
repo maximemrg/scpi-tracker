@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}À vérifier — SCPI Tracker{% endblock %}
+{% block content %}
+<h1>À vérifier ({{ items|length }})</h1>
+<p class="muted">Toutes les cases non extractibles automatiquement. Ouvrez la source, saisissez la
+valeur : elle devient prioritaire (confiance MANUELLE) et sort de cette liste.</p>
+<input id="flt" placeholder="Filtrer (SCPI, métrique)…" oninput="filtre()" style="margin-bottom:10px;width:320px">
+<table id="tbl">
+  <thead><tr><th class="l">SCPI</th><th class="l">Métrique</th><th class="l">Période</th>
+    <th class="l">Source</th><th class="l">Saisir</th></tr></thead>
+  <tbody>
+  {% for a in items %}
+    <tr>
+      <td class="l"><a href="/scpi/{{ a.scpi_id }}">{{ a.scpi_id }}</a></td>
+      <td class="l">{{ a.metric_key.replace('_',' ') }}</td>
+      <td class="l">{{ a.period or '' }}</td>
+      <td class="l">{% if a.source_url %}<a href="{{ a.source_url }}" target="_blank" rel="noopener">ouvrir</a>{% endif %}</td>
+      <td class="l">
+        <form class="inline" method="post" action="/override">
+          <input type="hidden" name="scpi_id" value="{{ a.scpi_id }}">
+          <input type="hidden" name="metric_key" value="{{ a.metric_key }}">
+          <input type="hidden" name="period" value="{{ a.period or '' }}">
+          <input type="hidden" name="source_url" value="{{ a.source_url or '' }}">
+          <input name="value" placeholder="valeur" size="9" required>
+          <input name="unit" placeholder="unité" size="5">
+          <input name="published_at" placeholder="AAAA-MM-JJ" size="11">
+          <button type="submit">OK</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<script>
+function filtre(){const q=document.getElementById('flt').value.toLowerCase();
+for(const tr of document.querySelectorAll('#tbl tbody tr')){
+const t=tr.cells[0].innerText.toLowerCase()+' '+tr.cells[1].innerText.toLowerCase();
+tr.style.display=t.includes(q)?'':'none';}}
+</script>
+{% endblock %}

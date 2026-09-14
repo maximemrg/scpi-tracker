@@ -30,5 +30,9 @@ collect:
 excel:
 	$(PY) -m scpi.cli excel
 
+# Application web locale : http://127.0.0.1:8000
+web:
+	$(PY) -m uvicorn scpi.web.app:app --host 127.0.0.1 --port 8000 --reload
+
 clean:
 	rm -rf .venv .mypy_cache .ruff_cache .pytest_cache

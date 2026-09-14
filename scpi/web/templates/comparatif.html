@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Comparatif — SCPI Tracker{% endblock %}
+{% block content %}
+<h1>Comparatif des SCPI</h1>
+<p class="muted">Cliquez une SCPI pour sa fiche (historique + saisie). Couleur = confiance ;
+« À vérifier » = donnée manquante à saisir.</p>
+<input id="flt" placeholder="Filtrer (nom, société de gestion)…" oninput="filtre()"
+       style="margin-bottom:10px; width:320px">
+<div style="overflow:auto; max-height:78vh">
+<table id="tbl">
+  <thead><tr>
+    <th class="l">SCPI</th><th class="l">Société de gestion</th>
+    {% for key, label, unit in display %}<th>{{ label }}{% if unit %} ({{ unit }}){% endif %}</th>{% endfor %}
+  </tr></thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td class="l"><a href="/scpi/{{ row.scpi.scpi_id }}">{{ row.scpi.nom }}</a></td>
+      <td class="l">{{ row.scpi.sdg_nom }}</td>
+      {% for key, label, unit in display %}
+        {% set c = row.cells[key] %}
+        {% if c is none %}<td class="muted">—</td>
+        {% elif c.status == 'A_VERIFIER' or c.value is none %}
+          <td class="averif"><a href="/scpi/{{ row.scpi.scpi_id }}">à vérifier</a></td>
+        {% else %}
+          <td class="{{ c.confidence }}">{{ '%g' % c.value if c.value is number else c.value }}</td>
+        {% endif %}
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<script>
+function filtre() {
+  const q = document.getElementById('flt').value.toLowerCase();
+  for (const tr of document.querySelectorAll('#tbl tbody tr')) {
+    const t = tr.cells[0].innerText.toLowerCase() + ' ' + tr.cells[1].innerText.toLowerCase();
+    tr.style.display = t.includes(q) ? '' : 'none';
+  }
+}
+</script>
+{% endblock %}

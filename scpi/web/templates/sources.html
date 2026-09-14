@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Sources — SCPI Tracker{% endblock %}
+{% block content %}
+<h1>Sources ({{ rows|length }})</h1>
+<p class="muted">Pour chaque valeur : période, date de publication, confiance et lien source.</p>
+<input id="flt" placeholder="Filtrer…" oninput="filtre()" style="margin-bottom:10px;width:320px">
+<div style="overflow:auto; max-height:80vh">
+<table id="tbl">
+  <thead><tr><th class="l">SCPI</th><th class="l">Métrique</th><th class="l">Période</th>
+    <th>Valeur</th><th class="l">Unité</th><th class="l">Publié</th>
+    <th class="l">Confiance</th><th class="l">Source</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td class="l"><a href="/scpi/{{ r.scpi_id }}">{{ r.scpi_id }}</a></td>
+      <td class="l">{{ r.metric_key.replace('_',' ') }}</td>
+      <td class="l">{{ r.period or '' }}</td>
+      <td>{{ r.value_num if r.value_num is not none else (r.value_text or '') }}</td>
+      <td class="l">{{ r.unit or '' }}</td>
+      <td class="l">{{ r.published_at or '' }}</td>
+      <td class="l"><span class="badge {{ r.confidence }}">{{ r.confidence }}</span></td>
+      <td class="l">{% if r.source_url %}<a href="{{ r.source_url }}" target="_blank" rel="noopener">lien</a>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<script>
+function filtre(){const q=document.getElementById('flt').value.toLowerCase();
+for(const tr of document.querySelectorAll('#tbl tbody tr')){
+tr.style.display=tr.innerText.toLowerCase().includes(q)?'':'none';}}
+</script>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ scpi.nom }} — SCPI Tracker{% endblock %}
+{% block content %}
+<p><a href="/">← Comparatif</a></p>
+<h1>{{ scpi.nom }} <span class="muted" style="font-size:14px">· {{ scpi.sdg_nom }}</span></h1>
+
+<div class="card">
+  <h2>Métriques connues</h2>
+  <table>
+    <thead><tr><th class="l">Métrique</th><th>Valeur</th><th class="l">Période</th>
+      <th class="l">Confiance</th><th class="l">Publié</th><th class="l">Source</th></tr></thead>
+    <tbody>
+    {% for m in metrics %}
+      {% set c = m.cell %}
+      <tr>
+        <td class="l">{{ m.key.replace('_',' ') }}</td>
+        {% if c.status == 'A_VERIFIER' or c.value is none %}
+          <td class="averif">à vérifier</td>
+        {% else %}
+          <td>{{ '%g' % c.value if c.value is number else c.value }} {{ c.unit or '' }}</td>
+        {% endif %}
+        <td class="l">{{ c.period or '' }}</td>
+        <td class="l"><span class="badge {{ c.confidence }}">{{ c.confidence or '' }}</span></td>
+        <td class="l">{{ c.published_at or '' }}</td>
+        <td class="l">{% if c.source_url %}<a href="{{ c.source_url }}" target="_blank" rel="noopener">lien</a>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if charts %}
+<div class="card">
+  <h2>Historique</h2>
+  <div class="grid">
+    {% for ch in charts %}
+      <div>
+        <strong>{{ ch.label }}</strong>
+        <canvas id="c{{ loop.index }}" height="160"></canvas>
+        <script type="application/json" id="d{{ loop.index }}">{{ ch.points | tojson }}</script>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Saisie manuelle</h2>
+  {% if averifier %}
+    <p class="muted">Cases manquantes ({{ averifier|length }}) — renseignez la valeur (le lien
+    source ouvre la page officielle) :</p>
+    <table>
+      <thead><tr><th class="l">Métrique</th><th class="l">Période</th><th class="l">Source</th>
+        <th class="l">Valeur à saisir</th></tr></thead>
+      <tbody>
+      {% for a in averifier %}
+        <tr>
+          <td class="l">{{ a.metric_key.replace('_',' ') }}</td>
+          <td class="l">{{ a.period or '' }}</td>
+          <td class="l">{% if a.source_url %}<a href="{{ a.source_url }}" target="_blank" rel="noopener">ouvrir</a>{% endif %}</td>
+          <td class="l">
+            <form class="inline" method="post" action="/override">
+              <input type="hidden" name="scpi_id" value="{{ scpi.scpi_id }}">
+              <input type="hidden" name="metric_key" value="{{ a.metric_key }}">
+              <input type="hidden" name="period" value="{{ a.period or '' }}">
+              <input type="hidden" name="source_url" value="{{ a.source_url or '' }}">
+              <input name="value" placeholder="ex. 5,73" size="10" required>
+              <input name="unit" placeholder="unité" size="5">
+              <input name="published_at" placeholder="AAAA-MM-JJ" size="11">
+              <button type="submit">Enregistrer</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">Aucune case en attente pour cette SCPI. 🎉</p>
+  {% endif %}
+
+  <h2 style="margin-top:18px">Corriger / ajouter n'importe quelle métrique</h2>
+  <form class="inline" method="post" action="/override">
+    <input type="hidden" name="scpi_id" value="{{ scpi.scpi_id }}">
+    <select name="metric_key">
+      {% for k in metric_keys %}<option value="{{ k }}">{{ k.replace('_',' ') }}</option>{% endfor %}
+    </select>
+    <input name="value" placeholder="valeur (ex. 5,73)" size="12" required>
+    <input name="unit" placeholder="unité (%, €…)" size="8">
+    <input name="period" placeholder="période (2025, 2026-T2…)" size="14">
+    <input name="published_at" placeholder="AAAA-MM-JJ" size="11">
+    <input name="source_url" placeholder="URL source" size="28">
+    <button type="submit">Enregistrer</button>
+  </form>
+  <p class="muted" style="margin-top:8px">Une saisie manuelle (confiance MANUELLE) est prioritaire
+  sur le scraping et conservée.</p>
+</div>
+
+<script>
+{% for ch in charts %}
+(function() {
+  const pts = JSON.parse(document.getElementById('d{{ loop.index }}').textContent);
+  new Chart(document.getElementById('c{{ loop.index }}'), {
+    type: 'line',
+    data: { labels: pts.map(p => p.date),
+            datasets: [{ label: '{{ ch.label }}', data: pts.map(p => p.value),
+                         borderColor:'#1F3864', backgroundColor:'rgba(31,56,100,.1)', tension:.2 }] },
+    options: { plugins:{legend:{display:false}}, scales:{x:{ticks:{maxRotation:60,minRotation:0}}} }
+  });
+})();
+{% endfor %}
+</script>
+{% endblock %}

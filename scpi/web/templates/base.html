@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}SCPI Tracker{% endblock %}</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg:#f7f7f8; --fg:#1f2430; --line:#e2e3e8; --head:#1F3864; --muted:#8a8f9a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+           color:var(--fg); background:var(--bg); }
+    header { background:var(--head); color:#fff; padding:12px 20px; display:flex; gap:20px; align-items:baseline; }
+    header a { color:#dbe3f4; text-decoration:none; }
+    header a:hover, header a.active { color:#fff; text-decoration:underline; }
+    header .brand { font-weight:700; font-size:16px; color:#fff; }
+    main { padding:20px; max-width:1400px; margin:0 auto; }
+    table { border-collapse:collapse; width:100%; background:#fff; }
+    th, td { border:1px solid var(--line); padding:6px 9px; text-align:right; white-space:nowrap; }
+    th { background:var(--head); color:#fff; position:sticky; top:0; font-weight:600; }
+    td.l, th.l { text-align:left; }
+    tr:nth-child(even) td { background:#fafafc; }
+    a { color:#1F3864; }
+    .badge { font-size:11px; padding:1px 6px; border-radius:9px; color:#333; }
+    .HAUTE { background:#cdebd6; } .MOYENNE { background:#fff0c2; }
+    .FAIBLE { background:#ffd9a0; } .MANUELLE { background:#d6e6fb; }
+    .averif { color:#9c5700; font-style:italic; background:#f2f2f2; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:18px; }
+    .muted { color:var(--muted); }
+    input, select { font:inherit; padding:4px 6px; border:1px solid var(--line); border-radius:5px; }
+    button { font:inherit; padding:5px 12px; border:0; border-radius:5px; background:var(--head); color:#fff; cursor:pointer; }
+    form.inline { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:16px; }
+    h1 { font-size:20px; } h2 { font-size:16px; margin-top:0; }
+    .kpi { font-size:13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="brand">📊 SCPI Tracker</span>
+    <a href="/">Comparatif</a>
+    <a href="/a-verifier">À vérifier</a>
+    <a href="/sources">Sources</a>
+    <span class="muted" style="margin-left:auto; color:#b9c3da">local · lecture + saisie manuelle</span>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

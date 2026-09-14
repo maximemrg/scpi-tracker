@@ -87,7 +87,9 @@ class Store:
     def __init__(self, path: Path | str = "data/scpi.sqlite") -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(self.path)
+        # check_same_thread=False : l'app web (threadpool) et les tests peuvent
+        # utiliser la connexion depuis un autre thread ; usage mono-écrivain.
+        self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
