@@ -264,9 +264,9 @@ societes_gestion:
         verifie: true   # page listing Immorente confirmée (server-rendered)
       sofidy_europe_invest:
         nom: "Sofidy Europe Invest"
-        fiche_url: "https://www.sofidy.com/documentation/"
-        documents_url: null   # listing SEI à localiser (bulletins = sei-*.pdf)
-        verifie: false
+        fiche_url: "https://www.sofidy.com/documentation/sofidy-europe-invest"
+        documents_url: "https://www.sofidy.com/documentation/sofidy-europe-invest"
+        verifie: true   # pattern /documentation/{slug} confirmé
 
   # ---------------------------------------------------------------------------
   alderan:

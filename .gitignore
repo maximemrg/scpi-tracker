@@ -15,6 +15,7 @@ venv/
 
 # Sorties
 /SCPI_tracker.xlsx
+/saisie_manuelle.yaml
 
 # Secrets
 .env

@@ -75,6 +75,22 @@ def cmd_list(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_template(args: argparse.Namespace) -> int:
+    from .manual import generate_template
+    with Store(args.db) as store:
+        n = generate_template(store, args.out)
+    print(f"{n} entrée(s) à saisir écrites dans {args.out}")
+    return 0
+
+
+def cmd_import_overrides(args: argparse.Namespace) -> int:
+    from .manual import import_template
+    with Store(args.db) as store:
+        n = import_template(store, args.file)
+    print(f"{n} correction(s) manuelle(s) importée(s) depuis {args.file}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="scpi")
     parser.add_argument("--db", default="data/scpi.sqlite")
@@ -87,6 +103,14 @@ def main(argv: list[str] | None = None) -> int:
 
     ls = sub.add_parser("list", help="liste les SCPI du registry")
     ls.set_defaults(func=cmd_list)
+
+    tp = sub.add_parser("template", help="génère le gabarit de saisie manuelle (A_VERIFIER)")
+    tp.add_argument("--out", default="saisie_manuelle.yaml")
+    tp.set_defaults(func=cmd_template)
+
+    im = sub.add_parser("import-overrides", help="importe un gabarit complété (manual_overrides)")
+    im.add_argument("file")
+    im.set_defaults(func=cmd_import_overrides)
 
     args = parser.parse_args(argv)
     return int(args.func(args))

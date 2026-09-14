@@ -8,9 +8,11 @@ from __future__ import annotations
 
 from .base import SourceAdapter
 from .corum import CorumAdapter
+from .sofidy import SofidyAdapter
 
 ADAPTERS: dict[str, type[SourceAdapter]] = {
     "corum_lepargne": CorumAdapter,
+    "sofidy": SofidyAdapter,
 }
 
-__all__ = ["ADAPTERS", "SourceAdapter", "CorumAdapter"]
+__all__ = ["ADAPTERS", "SourceAdapter", "CorumAdapter", "SofidyAdapter"]
