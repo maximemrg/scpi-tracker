@@ -91,6 +91,15 @@ def cmd_import_overrides(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_excel(args: argparse.Namespace) -> int:
+    from .excel import build_workbook
+    reg = load_registry()
+    with Store(args.db) as store:
+        build_workbook(store, args.out, reg)
+    print(f"Classeur écrit : {args.out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="scpi")
     parser.add_argument("--db", default="data/scpi.sqlite")
@@ -111,6 +120,10 @@ def main(argv: list[str] | None = None) -> int:
     im = sub.add_parser("import-overrides", help="importe un gabarit complété (manual_overrides)")
     im.add_argument("file")
     im.set_defaults(func=cmd_import_overrides)
+
+    ex = sub.add_parser("excel", help="génère SCPI_tracker.xlsx")
+    ex.add_argument("--out", default="SCPI_tracker.xlsx")
+    ex.set_defaults(func=cmd_excel)
 
     args = parser.parse_args(argv)
     return int(args.func(args))
