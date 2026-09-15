@@ -16,7 +16,7 @@ valeur : elle devient prioritaire (confiance MANUELLE) et sort de cette liste.</
       <td class="l">{{ a.period or '' }}</td>
       <td class="l">{% if a.source_url %}<a href="{{ a.source_url }}" target="_blank" rel="noopener">ouvrir</a>{% endif %}</td>
       <td class="l">
-        <form class="inline" method="post" action="/override">
+        <form class="inline" onsubmit="return SCPI.ajax(this, ()=>done(this))">
           <input type="hidden" name="scpi_id" value="{{ a.scpi_id }}">
           <input type="hidden" name="metric_key" value="{{ a.metric_key }}">
           <input type="hidden" name="period" value="{{ a.period or '' }}">
@@ -36,5 +36,14 @@ function filtre(){const q=document.getElementById('flt').value.toLowerCase();
 for(const tr of document.querySelectorAll('#tbl tbody tr')){
 const t=tr.cells[0].innerText.toLowerCase()+' '+tr.cells[1].innerText.toLowerCase();
 tr.style.display=t.includes(q)?'':'none';}}
+</script>
+{% endblock %}
+{% block scripts %}
+<script>
+function done(form){ const tr=form.closest('tr');
+  tr.style.transition='opacity .3s'; tr.style.opacity=0; setTimeout(()=>tr.remove(),300);
+  const h=document.querySelector('h1'); const m=h.textContent.match(/\((\d+)\)/);
+  if(m){ h.textContent = h.textContent.replace(/\(\d+\)/, '('+(parseInt(m[1])-1)+')'); }
+}
 </script>
 {% endblock %}

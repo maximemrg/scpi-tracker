@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord — SCPI Tracker{% endblock %}
+{% block content %}
+<h1>Tableau de bord</h1>
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+  <div class="card"><div class="muted">SCPI suivies</div><div style="font-size:26px;font-weight:700">{{ kpis.n_scpi }}</div></div>
+  <div class="card"><div class="muted">TD moyen</div><div style="font-size:26px;font-weight:700">{{ kpis.td_moyen if kpis.td_moyen is not none else '—' }} %</div></div>
+  <div class="card"><div class="muted">Métriques fiables</div><div style="font-size:26px;font-weight:700;color:#2e7d32">{{ kpis.n_ok }}</div></div>
+  <div class="card"><div class="muted">À vérifier</div><div style="font-size:26px;font-weight:700;color:#9c5700"><a href="/a-verifier" style="color:inherit">{{ kpis.n_av }}</a></div></div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Taux de distribution (classé)</h2>
+    <canvas id="bar" height="240"></canvas>
+  </div>
+  <div class="card">
+    <h2>Rendement vs décote/surcote</h2>
+    <p class="muted" style="margin-top:0">Idéal = <strong>en haut à gauche</strong> (TD élevé + décote,
+    écart prix/reconstitution négatif). Cliquez un point pour ouvrir la fiche.</p>
+    <canvas id="scatter" height="240"></canvas>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Top rendement</h2>
+    <table><thead><tr><th class="l">SCPI</th><th>TD %</th><th>Écart %</th></tr></thead><tbody>
+      {% for r in top_td %}<tr>
+        <td class="l"><a href="/scpi/{{ r.scpi.scpi_id }}">{{ r.scpi.nom }}</a></td>
+        <td>{{ '%g' % r.ind.td }}</td>
+        <td>{{ '%g' % r.ind.ecart if r.ind.ecart is not none else '—' }}</td>
+      </tr>{% endfor %}
+    </tbody></table>
+  </div>
+  <div class="card">
+    <h2>Plus fortes décotes (écart négatif)</h2>
+    <table><thead><tr><th class="l">SCPI</th><th>Écart %</th><th>TD %</th></tr></thead><tbody>
+      {% for r in top_decote %}<tr>
+        <td class="l"><a href="/scpi/{{ r.scpi.scpi_id }}">{{ r.scpi.nom }}</a></td>
+        <td>{{ '%g' % r.ind.ecart }}</td>
+        <td>{{ '%g' % r.ind.td if r.ind.td is not none else '—' }}</td>
+      </tr>{% endfor %}
+    </tbody></table>
+  </div>
+</div>
+
+<p><a href="/comparatif">→ Screener complet (toutes les métriques, tri, couleurs)</a></p>
+<script type="application/json" id="data">{{ chart_data | tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script>
+const D = JSON.parse(document.getElementById('data').textContent);
+const td = D.filter(d => d.td != null).sort((a,b) => b.td - a.td);
+new Chart(document.getElementById('bar'), {
+  type: 'bar',
+  data: { labels: td.map(d=>d.nom),
+          datasets:[{ data: td.map(d=>d.td), backgroundColor:'#1F3864' }] },
+  options: { indexAxis:'y', plugins:{legend:{display:false}},
+             onClick:(e,el)=>{ if(el.length){ location.href='/scpi/'+td[el[0].index].scpi_id; } } }
+});
+const sc = D.filter(d => d.td != null && d.ecart != null);
+new Chart(document.getElementById('scatter'), {
+  type: 'scatter',
+  data: { datasets:[{ data: sc.map(d=>({x:d.ecart, y:d.td, nom:d.nom, id:d.scpi_id})),
+                      backgroundColor:'#2e7d32' }] },
+  options: {
+    plugins: { legend:{display:false},
+      tooltip:{ callbacks:{ label:c=>`${c.raw.nom} : TD ${c.raw.y}%, écart ${c.raw.x}%` } } },
+    scales: { x:{ title:{display:true,text:'Écart prix/reconstitution (%)'} },
+              y:{ title:{display:true,text:'TD (%)'} } },
+    onClick:(e,el)=>{ if(el.length){ location.href='/scpi/'+sc[el[0].index].scpi_id; } }
+  }
+});
+</script>
+{% endblock %}

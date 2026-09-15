@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ scpi.nom }} — SCPI Tracker{% endblock %}
 {% block content %}
-<p><a href="/">← Comparatif</a></p>
+<p><a href="/comparatif">← Screener</a></p>
 <h1>{{ scpi.nom }} <span class="muted" style="font-size:14px">· {{ scpi.sdg_nom }}</span></h1>
 
 <div class="card">
@@ -45,11 +45,13 @@
 {% endif %}
 
 <div class="card">
-  <h2>Saisie manuelle</h2>
+  <h2>Saisie manuelle rapide</h2>
   {% if averifier %}
-    <p class="muted">Cases manquantes ({{ averifier|length }}) — renseignez la valeur (le lien
-    source ouvre la page officielle) :</p>
-    <table>
+    <p class="muted">Cases manquantes ({{ averifier|length }}) — tapez la valeur puis
+    <em>Entrée</em> (enregistrement instantané, sans rechargement). « ouvrir » = page source.</p>
+    <button type="button" onclick="saveAll()" style="margin-bottom:10px">💾 Tout enregistrer</button>
+    <span id="msg" class="muted"></span>
+    <table id="avtbl">
       <thead><tr><th class="l">Métrique</th><th class="l">Période</th><th class="l">Source</th>
         <th class="l">Valeur à saisir</th></tr></thead>
       <tbody>
@@ -59,7 +61,7 @@
           <td class="l">{{ a.period or '' }}</td>
           <td class="l">{% if a.source_url %}<a href="{{ a.source_url }}" target="_blank" rel="noopener">ouvrir</a>{% endif %}</td>
           <td class="l">
-            <form class="inline" method="post" action="/override">
+            <form class="inline av" onsubmit="return SCPI.ajax(this, ()=>done(this))">
               <input type="hidden" name="scpi_id" value="{{ scpi.scpi_id }}">
               <input type="hidden" name="metric_key" value="{{ a.metric_key }}">
               <input type="hidden" name="period" value="{{ a.period or '' }}">
@@ -67,7 +69,7 @@
               <input name="value" placeholder="ex. 5,73" size="10" required>
               <input name="unit" placeholder="unité" size="5">
               <input name="published_at" placeholder="AAAA-MM-JJ" size="11">
-              <button type="submit">Enregistrer</button>
+              <button type="submit">✓</button>
             </form>
           </td>
         </tr>
@@ -79,7 +81,7 @@
   {% endif %}
 
   <h2 style="margin-top:18px">Corriger / ajouter n'importe quelle métrique</h2>
-  <form class="inline" method="post" action="/override">
+  <form class="inline" onsubmit="return SCPI.ajax(this, ()=>location.reload())">
     <input type="hidden" name="scpi_id" value="{{ scpi.scpi_id }}">
     <select name="metric_key">
       {% for k in metric_keys %}<option value="{{ k }}">{{ k.replace('_',' ') }}</option>{% endfor %}
@@ -94,17 +96,34 @@
   <p class="muted" style="margin-top:8px">Une saisie manuelle (confiance MANUELLE) est prioritaire
   sur le scraping et conservée.</p>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
+// Retire une ligne A_VERIFIER après enregistrement.
+function done(form) {
+  const tr = form.closest('tr'); tr.style.transition='opacity .3s'; tr.style.opacity=0;
+  setTimeout(()=>tr.remove(), 300);
+  const m = document.getElementById('msg'); if (m) { m.textContent = '✅ enregistré'; }
+}
+// Enregistre toutes les lignes dont la valeur est remplie.
+function saveAll() {
+  const forms = [...document.querySelectorAll('#avtbl form.av')]
+    .filter(f => f.value.value.trim() !== '');
+  if (!forms.length) { document.getElementById('msg').textContent = 'Rien à enregistrer.'; return; }
+  forms.forEach(f => SCPI.ajax(f, ()=>done(f)));
+  document.getElementById('msg').textContent = `✅ ${forms.length} valeur(s) enregistrée(s)`;
+}
+// Graphiques d'historique.
 {% for ch in charts %}
-(function() {
+(function(){
   const pts = JSON.parse(document.getElementById('d{{ loop.index }}').textContent);
   new Chart(document.getElementById('c{{ loop.index }}'), {
-    type: 'line',
-    data: { labels: pts.map(p => p.date),
-            datasets: [{ label: '{{ ch.label }}', data: pts.map(p => p.value),
-                         borderColor:'#1F3864', backgroundColor:'rgba(31,56,100,.1)', tension:.2 }] },
-    options: { plugins:{legend:{display:false}}, scales:{x:{ticks:{maxRotation:60,minRotation:0}}} }
+    type:'line',
+    data:{ labels:pts.map(p=>p.date),
+           datasets:[{ label:'{{ ch.label }}', data:pts.map(p=>p.value),
+                       borderColor:'#1F3864', backgroundColor:'rgba(31,56,100,.1)', tension:.2 }] },
+    options:{ plugins:{legend:{display:false}}, scales:{x:{ticks:{maxRotation:60}}} }
   });
 })();
 {% endfor %}

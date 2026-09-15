@@ -38,11 +38,70 @@
 <body>
   <header>
     <span class="brand">📊 SCPI Tracker</span>
-    <a href="/">Comparatif</a>
+    <a href="/">Tableau de bord</a>
+    <a href="/comparatif">Screener</a>
     <a href="/a-verifier">À vérifier</a>
     <a href="/sources">Sources</a>
     <span class="muted" style="margin-left:auto; color:#b9c3da">local · lecture + saisie manuelle</span>
   </header>
   <main>{% block content %}{% endblock %}</main>
+  <script>
+  window.SCPI = {
+    // Soumission AJAX d'un formulaire d'override ; onOk(data) au succès.
+    ajax(form, onOk) {
+      const fd = new FormData(form); fd.set('ajax', '1');
+      fetch('/override', { method:'POST', body:fd })
+        .then(r => r.json())
+        .then(d => { if (d.ok && onOk) onOk(d); })
+        .catch(() => alert('Échec de l’enregistrement.'));
+      return false;
+    },
+    // Échelle de couleur vert→rouge sur les cellules .num d'un tableau,
+    // par colonne (data-col) et sens (data-dir = haut|bas).
+    applyScales(table) {
+      const cells = [...table.querySelectorAll('td.num[data-val]')];
+      const byCol = {};
+      cells.forEach(c => { (byCol[c.dataset.col] ??= []).push(c); });
+      for (const col in byCol) {
+        const cs = byCol[col];
+        const vals = cs.map(c => parseFloat(c.dataset.val)).filter(v => !isNaN(v));
+        if (!vals.length) continue;
+        const min = Math.min(...vals), max = Math.max(...vals);
+        cs.forEach(c => {
+          const v = parseFloat(c.dataset.val); if (isNaN(v)) return;
+          let t = max === min ? 0.5 : (v - min) / (max - min);
+          if (c.dataset.dir === 'bas') t = 1 - t;      // faible = mieux
+          if (c.dataset.dir === 'none' || !c.dataset.dir) return;
+          const r = t < .5 ? 248 : Math.round(248 - (t-.5)*2*(248-99));
+          const g = t < .5 ? Math.round(105 + t*2*(190-105)) : 190;
+          const b = t < .5 ? 107 : Math.round(190 - (t-.5)*2*(190-123));
+          c.style.background = `rgb(${r},${g},${b})`;
+        });
+      }
+    },
+    // Tri au clic sur les entêtes .sortable.
+    makeSortable(table) {
+      table.querySelectorAll('th.sortable').forEach((th, idx) => {
+        th.style.cursor = 'pointer'; th.title = 'Trier';
+        let asc = true;
+        th.addEventListener('click', () => {
+          const tb = table.tBodies[0];
+          const rows = [...tb.rows];
+          const col = th.cellIndex;
+          rows.sort((a, b) => {
+            const av = a.cells[col].dataset.val, bv = b.cells[col].dataset.val;
+            const na = parseFloat(av), nb = parseFloat(bv);
+            const bothNum = !isNaN(na) && !isNaN(nb);
+            if (bothNum) return asc ? na - nb : nb - na;
+            return asc ? (av||'').localeCompare(bv||'') : (bv||'').localeCompare(av||'');
+          });
+          asc = !asc;
+          rows.forEach(r => tb.appendChild(r));
+        });
+      });
+    }
+  };
+  </script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

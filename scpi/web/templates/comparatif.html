@@ -1,40 +1,55 @@
 {% extends "base.html" %}
-{% block title %}Comparatif — SCPI Tracker{% endblock %}
+{% block title %}Screener — SCPI Tracker{% endblock %}
+{% macro fmt(col, v) -%}
+  {%- if v is none -%}—
+  {%- elif col == 'capi' -%}{{ '%.0f' % (v/1000000) }} M€
+  {%- else -%}{{ '%g' % v }}{% if col in ('td','tri5','ecart','tof','frais') %} %{% elif col=='prix' %} €{% elif col=='delai' %} m{% endif %}
+  {%- endif -%}
+{%- endmacro %}
 {% block content %}
-<h1>Comparatif des SCPI</h1>
-<p class="muted">Cliquez une SCPI pour sa fiche (historique + saisie). Couleur = confiance ;
-« À vérifier » = donnée manquante à saisir.</p>
+<h1>Screener SCPI</h1>
+<p class="muted">Cliquez une entête pour trier. Couleur : 🟢 favorable → 🔴 défavorable
+(TD/TRI/TOF hauts = mieux ; écart prix/reconstitution, frais, délai bas = mieux).
+« à vérifier » = donnée manquante à saisir.</p>
 <input id="flt" placeholder="Filtrer (nom, société de gestion)…" oninput="filtre()"
-       style="margin-bottom:10px; width:320px">
+       style="margin-bottom:10px; width:340px">
 <div style="overflow:auto; max-height:78vh">
 <table id="tbl">
   <thead><tr>
-    <th class="l">SCPI</th><th class="l">Société de gestion</th>
-    {% for key, label, unit in display %}<th>{{ label }}{% if unit %} ({{ unit }}){% endif %}</th>{% endfor %}
+    <th class="l sortable">SCPI</th>
+    <th class="l sortable">Société de gestion</th>
+    {% for cid, label, unit, dir in cols %}
+      <th class="sortable">{{ label }}{% if unit %} ({{ unit }}){% endif %}</th>
+    {% endfor %}
+    <th class="sortable">À saisir</th>
   </tr></thead>
   <tbody>
   {% for row in rows %}
     <tr>
-      <td class="l"><a href="/scpi/{{ row.scpi.scpi_id }}">{{ row.scpi.nom }}</a></td>
-      <td class="l">{{ row.scpi.sdg_nom }}</td>
-      {% for key, label, unit in display %}
-        {% set c = row.cells[key] %}
-        {% if c is none %}<td class="muted">—</td>
-        {% elif c.status == 'A_VERIFIER' or c.value is none %}
-          <td class="averif"><a href="/scpi/{{ row.scpi.scpi_id }}">à vérifier</a></td>
+      <td class="l" data-val="{{ row.scpi.nom }}"><a href="/scpi/{{ row.scpi.scpi_id }}">{{ row.scpi.nom }}</a></td>
+      <td class="l" data-val="{{ row.scpi.sdg_nom }}">{{ row.scpi.sdg_nom }}</td>
+      {% for cid, label, unit, dir in cols %}
+        {% set v = row.ind[cid] %}
+        {% if v is none %}
+          <td class="averif" data-val=""><a href="/scpi/{{ row.scpi.scpi_id }}">à vérifier</a></td>
         {% else %}
-          <td class="{{ c.confidence }}">{{ '%g' % c.value if c.value is number else c.value }}</td>
+          <td class="num" data-col="{{ cid }}" data-dir="{{ dir or 'none' }}" data-val="{{ v }}">{{ fmt(cid, v) }}</td>
         {% endif %}
       {% endfor %}
+      <td data-val="{{ row.n_av }}">{% if row.n_av %}<a href="/scpi/{{ row.scpi.scpi_id }}">{{ row.n_av }}</a>{% else %}0{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
+{% endblock %}
+{% block scripts %}
 <script>
+const tbl = document.getElementById('tbl');
+SCPI.applyScales(tbl); SCPI.makeSortable(tbl);
 function filtre() {
   const q = document.getElementById('flt').value.toLowerCase();
-  for (const tr of document.querySelectorAll('#tbl tbody tr')) {
+  for (const tr of tbl.tBodies[0].rows) {
     const t = tr.cells[0].innerText.toLowerCase() + ' ' + tr.cells[1].innerText.toLowerCase();
     tr.style.display = t.includes(q) ? '' : 'none';
   }

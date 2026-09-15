@@ -29,10 +29,10 @@ def _client(tmp_path):
 
 def test_pages_render(tmp_path):
     client, store = _client(tmp_path)
-    for path in ["/", "/a-verifier", "/sources", "/scpi/corum_eurion"]:
+    for path in ["/", "/comparatif", "/a-verifier", "/sources", "/scpi/corum_eurion"]:
         r = client.get(path)
         assert r.status_code == 200
-    assert "Corum Eurion" in client.get("/").text
+    assert "Corum Eurion" in client.get("/comparatif").text
     detail = client.get("/scpi/corum_eurion").text
     assert "5,73" in detail or "5.73" in detail
     store.close()
