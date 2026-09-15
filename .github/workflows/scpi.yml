@@ -66,10 +66,17 @@ jobs:
           git add data/scpi.sqlite SCPI_tracker.xlsx docs/index.html
           if git diff --cached --quiet; then
             echo "Aucun changement à committer."
-          else
-            git commit -m "Collecte SCPI automatique $(date -u +%Y-%m-%d)"
-            git push
+            exit 0
           fi
+          git commit -m "Collecte SCPI automatique $(date -u +%Y-%m-%d)"
+          # Intègre d'éventuels changements distants (course avec un push manuel)
+          # puis pousse, avec quelques réessais.
+          for i in 1 2 3 4 5; do
+            git pull --rebase --autostash origin main \
+              && git push origin main && { echo "push OK"; exit 0; }
+            echo "conflit/refus, réessai $i…"; sleep 5
+          done
+          echo "Échec du push après réessais" >&2; exit 1
 
       - name: Préparer l'artefact Pages
         uses: actions/upload-pages-artifact@v3
