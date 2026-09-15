@@ -6,7 +6,9 @@ on:
   workflow_dispatch: {}         # déclenchement manuel
 
 permissions:
-  contents: write               # pour committer la base + le classeur
+  contents: write               # committer la base + le classeur + la page
+  pages: write                  # publier sur GitHub Pages
+  id-token: write               # authentification du déploiement Pages
 
 concurrency:
   group: scpi-collecte
@@ -39,6 +41,9 @@ jobs:
       - name: Régénérer le classeur Excel
         run: python -m scpi.cli --db data/scpi.sqlite excel --out SCPI_tracker.xlsx
 
+      - name: Régénérer la page HTML (GitHub Pages)
+        run: python -m scpi.cli --db data/scpi.sqlite export-html --out docs/index.html
+
       - name: Résumé Markdown
         run: python -m scpi.cli --db data/scpi.sqlite summary >> "$GITHUB_STEP_SUMMARY"
 
@@ -54,14 +59,30 @@ jobs:
           python -m scpi.cli --db data/scpi.sqlite push-sheets
           rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
 
-      - name: Committer la base et le classeur
+      - name: Committer la base, le classeur et la page
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/scpi.sqlite SCPI_tracker.xlsx
+          git add data/scpi.sqlite SCPI_tracker.xlsx docs/index.html
           if git diff --cached --quiet; then
             echo "Aucun changement à committer."
           else
             git commit -m "Collecte SCPI automatique $(date -u +%Y-%m-%d)"
             git push
           fi
+
+      - name: Préparer l'artefact Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  # Publie la page sur GitHub Pages (URL fixe, toujours à jour).
+  pages:
+    needs: collecte
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
