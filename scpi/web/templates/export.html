@@ -12,98 +12,213 @@
 <title>SCPI — indicateurs</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <style>
-  .scpi-embed { --line:#e2e3e8; --head:#1F3864; color:#1f2430;
-    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  .scpi-embed { --line:#e2e3e8; --head:#1F3864; color:#1f2430; background:#f7f7f8;
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; border-radius:10px; overflow:hidden; }
   .scpi-embed * { box-sizing:border-box; }
+  .scpi-embed .bar { background:var(--head); color:#fff; padding:10px 16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .scpi-embed .bar b { font-size:15px; margin-right:8px; }
+  .scpi-embed .tab { background:transparent; color:#dbe3f4; border:0; padding:6px 12px; border-radius:6px; cursor:pointer; font:inherit; }
+  .scpi-embed .tab.active { background:#ffffff22; color:#fff; font-weight:600; }
+  .scpi-embed .gen { margin-left:auto; color:#b9c3da; font-size:12px; }
+  .scpi-embed .pane { padding:16px; display:none; }
+  .scpi-embed .pane.active { display:block; }
   .scpi-embed table { border-collapse:collapse; width:100%; background:#fff; }
   .scpi-embed th,.scpi-embed td { border:1px solid var(--line); padding:6px 9px; text-align:right; white-space:nowrap; }
-  .scpi-embed th { background:var(--head); color:#fff; cursor:pointer; }
+  .scpi-embed th { background:var(--head); color:#fff; cursor:pointer; position:sticky; top:0; }
   .scpi-embed td.l,.scpi-embed th.l { text-align:left; }
   .scpi-embed .averif { color:#9c5700; font-style:italic; background:#f2f2f2; }
-  .scpi-embed .cards { display:flex; gap:12px; flex-wrap:wrap; margin:10px 0; }
+  .scpi-embed .cards { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
   .scpi-embed .card { border:1px solid var(--line); border-radius:8px; padding:12px 16px; background:#fff; }
   .scpi-embed .card b { font-size:22px; display:block; }
   .scpi-embed .muted { color:#8a8f9a; }
-  .scpi-embed .charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin:14px 0; }
-  .scpi-embed input { font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:5px; margin:8px 0; width:320px; max-width:100%; }
+  .scpi-embed .charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
+  .scpi-embed input { font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:5px; margin-bottom:8px; width:320px; max-width:100%; }
   .scpi-embed h2 { font-size:15px; margin:0 0 6px; }
+  .scpi-embed a.name { color:var(--head); cursor:pointer; text-decoration:underline; }
+  .scpi-embed .scroll { overflow:auto; max-height:68vh; }
+  .scpi-embed .badge { font-size:11px; padding:1px 6px; border-radius:9px; }
+  .scpi-embed .HAUTE{background:#cdebd6}.scpi-embed .MOYENNE{background:#fff0c2}
+  .scpi-embed .FAIBLE{background:#ffd9a0}.scpi-embed .MANUELLE{background:#d6e6fb}
+  .scpi-modal { position:fixed; inset:0; background:#0007; display:none; z-index:9999;
+    align-items:flex-start; justify-content:center; padding:4vh 2vw; }
+  .scpi-modal.open { display:flex; }
+  .scpi-modal .box { background:#fff; border-radius:10px; max-width:1000px; width:100%; max-height:92vh; overflow:auto; padding:18px; }
+  .scpi-modal .x { float:right; border:0; background:#eee; border-radius:6px; padding:5px 10px; cursor:pointer; font:inherit; }
 </style>
 </head>
 <body>
 <div class="scpi-embed" id="scpi-embed">
-  <div class="cards">
-    <div class="card"><span class="muted">SCPI</span><b>{{ kpis.n_scpi }}</b></div>
-    <div class="card"><span class="muted">TD moyen</span><b>{{ kpis.td_moyen if kpis.td_moyen is not none else '—' }} %</b></div>
-    <div class="card"><span class="muted">Métriques fiables</span><b style="color:#2e7d32">{{ kpis.n_ok }}</b></div>
-    <div class="card"><span class="muted">À vérifier</span><b style="color:#9c5700">{{ kpis.n_av }}</b></div>
-  </div>
-  <p class="muted">Instantané généré le {{ generated }} — lecture seule. Couleur : 🟢 favorable → 🔴 défavorable.</p>
-
-  <div class="charts">
-    <div><h2>Taux de distribution</h2><canvas id="scpiBar" height="220"></canvas></div>
-    <div><h2>Rendement vs décote/surcote</h2><canvas id="scpiScatter" height="220"></canvas></div>
+  <div class="bar">
+    <b>📊 SCPI</b>
+    <button class="tab active" data-tab="dash">Tableau de bord</button>
+    <button class="tab" data-tab="screener">Screener</button>
+    <button class="tab" data-tab="sources">Sources</button>
+    <button class="tab" data-tab="averif">À vérifier</button>
+    <span class="gen">maj {{ generated }} · lecture seule</span>
   </div>
 
-  <input id="scpiFlt" placeholder="Filtrer…" oninput="scpiFiltre()">
-  <div style="overflow:auto; max-height:70vh">
-  <table id="scpiTbl">
-    <thead><tr>
-      <th class="l">SCPI</th><th class="l">Société de gestion</th>
-      {% for cid,label,unit,dir in cols %}<th>{{ label }}{% if unit %} ({{ unit }}){% endif %}</th>{% endfor %}
-    </tr></thead>
-    <tbody>
-    {% for row in rows %}
-      <tr>
-        <td class="l" data-val="{{ row.scpi.nom }}">{{ row.scpi.nom }}</td>
-        <td class="l" data-val="{{ row.scpi.sdg_nom }}">{{ row.scpi.sdg_nom }}</td>
-        {% for cid,label,unit,dir in cols %}
-          {% set v = row.ind[cid] %}
-          {% if v is none %}<td class="averif" data-val="">à vérifier</td>
-          {% else %}<td class="num" data-col="{{ cid }}" data-dir="{{ dir or 'none' }}" data-val="{{ v }}">{{ fmt(cid, v) }}</td>{% endif %}
-        {% endfor %}
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+  <!-- Tableau de bord -->
+  <div class="pane active" id="pane-dash">
+    <div class="cards">
+      <div class="card"><span class="muted">SCPI</span><b>{{ kpis.n_scpi }}</b></div>
+      <div class="card"><span class="muted">TD moyen</span><b>{{ kpis.td_moyen if kpis.td_moyen is not none else '—' }} %</b></div>
+      <div class="card"><span class="muted">Métriques fiables</span><b style="color:#2e7d32">{{ kpis.n_ok }}</b></div>
+      <div class="card"><span class="muted">À vérifier</span><b style="color:#9c5700">{{ kpis.n_av }}</b></div>
+    </div>
+    <div class="charts">
+      <div><h2>Taux de distribution</h2><canvas id="scpiBar" height="220"></canvas></div>
+      <div><h2>Rendement vs décote/surcote</h2>
+        <p class="muted" style="margin:0 0 6px">Idéal = en haut à gauche. Cliquez un point pour la fiche.</p>
+        <canvas id="scpiScatter" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Screener -->
+  <div class="pane" id="pane-screener">
+    <p class="muted">Cliquez une entête pour trier ; un nom de SCPI pour sa fiche. Couleur 🟢→🔴.</p>
+    <input id="scpiFlt" placeholder="Filtrer…" oninput="scpiFiltre()">
+    <div class="scroll">
+    <table id="scpiTbl">
+      <thead><tr>
+        <th class="l">SCPI</th><th class="l">Société de gestion</th>
+        {% for cid,label,unit,dir in cols %}<th>{{ label }}{% if unit %} ({{ unit }}){% endif %}</th>{% endfor %}
+        <th>À saisir</th>
+      </tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="l" data-val="{{ row.scpi.nom }}"><a class="name" onclick="scpiDetail('{{ row.scpi.scpi_id }}')">{{ row.scpi.nom }}</a></td>
+          <td class="l" data-val="{{ row.scpi.sdg_nom }}">{{ row.scpi.sdg_nom }}</td>
+          {% for cid,label,unit,dir in cols %}
+            {% set v = row.ind[cid] %}
+            {% if v is none %}<td class="averif" data-val="">à vérifier</td>
+            {% else %}<td class="num" data-col="{{ cid }}" data-dir="{{ dir or 'none' }}" data-val="{{ v }}">{{ fmt(cid, v) }}</td>{% endif %}
+          {% endfor %}
+          <td data-val="{{ row.n_av }}">{{ row.n_av }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="pane" id="pane-sources">
+    <input id="srcFlt" placeholder="Filtrer…" oninput="srcFiltre()">
+    <div class="scroll">
+    <table id="srcTbl">
+      <thead><tr><th class="l">SCPI</th><th class="l">Métrique</th><th class="l">Période</th>
+        <th>Valeur</th><th class="l">Publié</th><th class="l">Confiance</th><th class="l">Source</th></tr></thead>
+      <tbody>
+      {% for r in sources %}
+        <tr>
+          <td class="l">{{ r.scpi_id }}</td><td class="l">{{ r.metric_key.replace('_',' ') }}</td>
+          <td class="l">{{ r.period or '' }}</td>
+          <td>{{ r.value_num if r.value_num is not none else (r.value_text or '') }} {{ r.unit or '' }}</td>
+          <td class="l">{{ r.published_at or '' }}</td>
+          <td class="l"><span class="badge {{ r.confidence }}">{{ r.confidence }}</span></td>
+          <td class="l">{% if r.source_url %}<a href="{{ r.source_url }}" target="_blank" rel="noopener">lien</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- À vérifier -->
+  <div class="pane" id="pane-averif">
+    <p class="muted">{{ averifier|length }} case(s) à compléter (dans l'app locale). Lecture seule ici.</p>
+    <input id="avFlt" placeholder="Filtrer…" oninput="avFiltre()">
+    <div class="scroll">
+    <table id="avTbl">
+      <thead><tr><th class="l">SCPI</th><th class="l">Métrique</th><th class="l">Période</th><th class="l">Source</th></tr></thead>
+      <tbody>
+      {% for a in averifier %}
+        <tr>
+          <td class="l">{{ a.scpi_id }}</td><td class="l">{{ a.metric_key.replace('_',' ') }}</td>
+          <td class="l">{{ a.period or '' }}</td>
+          <td class="l">{% if a.source_url %}<a href="{{ a.source_url }}" target="_blank" rel="noopener">ouvrir</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
   </div>
 </div>
 
-<script type="application/json" id="scpiData">{{ chart_data | tojson }}</script>
+<div class="scpi-modal" id="scpiModal"><div class="box" id="scpiModalBox"></div></div>
+
+<script type="application/json" id="scpiChart">{{ chart_data | tojson }}</script>
+<script type="application/json" id="scpiDetails">{{ details | tojson }}</script>
 <script>
 (function(){
-  const root = document.getElementById('scpi-embed');
-  const tbl = document.getElementById('scpiTbl');
-  // Échelle de couleur vert->rouge par colonne.
-  const cells = [...tbl.querySelectorAll('td.num[data-val]')], byCol={};
-  cells.forEach(c => (byCol[c.dataset.col] ??= []).push(c));
-  for (const col in byCol) {
-    const cs=byCol[col], vals=cs.map(c=>parseFloat(c.dataset.val)).filter(v=>!isNaN(v));
-    if(!vals.length) continue;
-    const mn=Math.min(...vals), mx=Math.max(...vals);
-    cs.forEach(c=>{ let v=parseFloat(c.dataset.val); if(isNaN(v)||c.dataset.dir==='none')return;
-      let t=mx===mn?0.5:(v-mn)/(mx-mn); if(c.dataset.dir==='bas')t=1-t;
-      const r=t<.5?248:Math.round(248-(t-.5)*2*149), g=t<.5?Math.round(105+t*2*85):190, b=t<.5?107:Math.round(190-(t-.5)*2*67);
-      c.style.background=`rgb(${r},${g},${b})`; });
-  }
-  // Tri au clic.
-  tbl.querySelectorAll('th').forEach((th,ci)=>{ let asc=true; th.addEventListener('click',()=>{
-    const tb=tbl.tBodies[0], rows=[...tb.rows];
-    rows.sort((a,b)=>{ const av=a.cells[ci].dataset.val,bv=b.cells[ci].dataset.val,na=parseFloat(av),nb=parseFloat(bv);
-      if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na; return asc?(av||'').localeCompare(bv||''):(bv||'').localeCompare(av||''); });
-    asc=!asc; rows.forEach(r=>tb.appendChild(r)); }); });
-  window.scpiFiltre=function(){ const q=document.getElementById('scpiFlt').value.toLowerCase();
-    for(const tr of tbl.tBodies[0].rows){ tr.style.display=(tr.cells[0].innerText+' '+tr.cells[1].innerText).toLowerCase().includes(q)?'':'none'; } };
-  // Graphiques.
-  const D=JSON.parse(document.getElementById('scpiData').textContent);
+  const root=document.getElementById('scpi-embed');
+  // Onglets
+  root.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+    root.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    root.querySelectorAll('.pane').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active'); root.querySelector('#pane-'+t.dataset.tab).classList.add('active');
+  }));
+  // Filtres
+  const mkFiltre=(inp,tbl)=>()=>{const q=document.getElementById(inp).value.toLowerCase();
+    for(const tr of document.getElementById(tbl).tBodies[0].rows){tr.style.display=tr.innerText.toLowerCase().includes(q)?'':'none';}};
+  window.scpiFiltre=mkFiltre('scpiFlt','scpiTbl'); window.srcFiltre=mkFiltre('srcFlt','srcTbl'); window.avFiltre=mkFiltre('avFlt','avTbl');
+  // Échelle couleur + tri (screener)
+  const tbl=document.getElementById('scpiTbl');
+  const cells=[...tbl.querySelectorAll('td.num[data-val]')],byCol={};
+  cells.forEach(c=>(byCol[c.dataset.col]??=[]).push(c));
+  for(const col in byCol){const cs=byCol[col],vals=cs.map(c=>parseFloat(c.dataset.val)).filter(v=>!isNaN(v));
+    if(!vals.length)continue;const mn=Math.min(...vals),mx=Math.max(...vals);
+    cs.forEach(c=>{let v=parseFloat(c.dataset.val);if(isNaN(v)||c.dataset.dir==='none')return;
+      let t=mx===mn?0.5:(v-mn)/(mx-mn);if(c.dataset.dir==='bas')t=1-t;
+      const r=t<.5?248:Math.round(248-(t-.5)*2*149),g=t<.5?Math.round(105+t*2*85):190,b=t<.5?107:Math.round(190-(t-.5)*2*67);
+      c.style.background=`rgb(${r},${g},${b})`;});}
+  tbl.querySelectorAll('th').forEach((th,ci)=>{let asc=true;th.addEventListener('click',()=>{
+    const tb=tbl.tBodies[0],rows=[...tb.rows];
+    rows.sort((a,b)=>{const av=a.cells[ci].dataset.val??a.cells[ci].innerText,bv=b.cells[ci].dataset.val??b.cells[ci].innerText,na=parseFloat(av),nb=parseFloat(bv);
+      if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na;return asc?(''+av).localeCompare(bv):(''+bv).localeCompare(av);});
+    asc=!asc;rows.forEach(r=>tb.appendChild(r));});});
+  // Graphiques tableau de bord
+  const D=JSON.parse(document.getElementById('scpiChart').textContent);
   const td=D.filter(d=>d.td!=null).sort((a,b)=>b.td-a.td);
   new Chart(document.getElementById('scpiBar'),{type:'bar',
     data:{labels:td.map(d=>d.nom),datasets:[{data:td.map(d=>d.td),backgroundColor:'#1F3864'}]},
-    options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+    options:{indexAxis:'y',plugins:{legend:{display:false}},
+      onClick:(e,el)=>{if(el.length)scpiDetail(td[el[0].index].scpi_id);}}});
   const sc=D.filter(d=>d.td!=null&&d.ecart!=null);
   new Chart(document.getElementById('scpiScatter'),{type:'scatter',
-    data:{datasets:[{data:sc.map(d=>({x:d.ecart,y:d.td,nom:d.nom})),backgroundColor:'#2e7d32'}]},
+    data:{datasets:[{data:sc.map(d=>({x:d.ecart,y:d.td,nom:d.nom,id:d.scpi_id})),backgroundColor:'#2e7d32'}]},
     options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.nom} : TD ${c.raw.y}%, écart ${c.raw.x}%`}}},
-      scales:{x:{title:{display:true,text:'Écart prix/reconstitution (%)'}},y:{title:{display:true,text:'TD (%)'}}}}});
+      scales:{x:{title:{display:true,text:'Écart prix/reconstitution (%)'}},y:{title:{display:true,text:'TD (%)'}}},
+      onClick:(e,el)=>{if(el.length)scpiDetail(sc[el[0].index].id);}}});
+  // Fiche SCPI (modale)
+  const DET=JSON.parse(document.getElementById('scpiDetails').textContent);
+  const modal=document.getElementById('scpiModal'),box=document.getElementById('scpiModalBox');
+  let charts=[];
+  const num=v=>typeof v==='number'?(''+(+v.toFixed(4))).replace('.',','):v;
+  window.scpiDetail=function(id){
+    const d=DET[id];if(!d)return;
+    charts.forEach(c=>c.destroy());charts=[];
+    let h='<button class="x" onclick="scpiClose()">✕ Fermer</button>';
+    h+=`<h2 style="font-size:18px">${d.nom} <span class="muted" style="font-weight:400">· ${d.sdg}</span></h2>`;
+    h+='<table><thead><tr><th class="l">Métrique</th><th>Valeur</th><th class="l">Période</th><th class="l">Confiance</th><th class="l">Publié</th><th class="l">Source</th></tr></thead><tbody>';
+    d.metrics.forEach(m=>{const val=(m.status==='A_VERIFIER'||m.value==null)?'<span class="averif">à vérifier</span>':`${num(m.value)} ${m.unit||''}`;
+      h+=`<tr><td class="l">${m.label}</td><td>${val}</td><td class="l">${m.period||''}</td>`+
+         `<td class="l"><span class="badge ${m.confidence||''}">${m.confidence||''}</span></td><td class="l">${m.published||''}</td>`+
+         `<td class="l">${m.source?`<a href="${m.source}" target="_blank" rel="noopener">lien</a>`:''}</td></tr>`;});
+    h+='</tbody></table>';
+    const hk=Object.keys(d.history);
+    if(hk.length){h+='<h2 style="margin-top:14px">Historique</h2><div class="charts">';
+      hk.forEach((k,i)=>{h+=`<div><strong>${d.history[k].label}</strong><canvas id="hc${i}" height="150"></canvas></div>`;});
+      h+='</div>';}
+    box.innerHTML=h;modal.classList.add('open');
+    hk.forEach((k,i)=>{const pts=d.history[k].points;
+      charts.push(new Chart(document.getElementById('hc'+i),{type:'line',
+        data:{labels:pts.map(p=>p.date),datasets:[{data:pts.map(p=>p.value),borderColor:'#1F3864',backgroundColor:'rgba(31,56,100,.1)',tension:.2}]},
+        options:{plugins:{legend:{display:false}}}}));});
+  };
+  window.scpiClose=function(){modal.classList.remove('open');charts.forEach(c=>c.destroy());charts=[];};
+  modal.addEventListener('click',e=>{if(e.target===modal)scpiClose();});
 })();
 </script>
 </body>
