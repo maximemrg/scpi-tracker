@@ -23,3 +23,6 @@ venv/
 .env
 *.json.key
 service_account*.json
+
+# Export HTML généré (à héberger sur votre site)
+/public/

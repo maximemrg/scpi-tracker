@@ -1,0 +1,110 @@
+{% macro fmt(col, v) -%}
+  {%- if v is none -%}—
+  {%- elif col == 'capi' -%}{{ '%.0f' % (v/1000000) }} M€
+  {%- else -%}{{ '%g' % v }}{% if col in ('td','tri5','ecart','tof','frais') %} %{% elif col=='prix' %} €{% elif col=='delai' %} m{% endif %}
+  {%- endif -%}
+{%- endmacro %}
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCPI — indicateurs</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  .scpi-embed { --line:#e2e3e8; --head:#1F3864; color:#1f2430;
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  .scpi-embed * { box-sizing:border-box; }
+  .scpi-embed table { border-collapse:collapse; width:100%; background:#fff; }
+  .scpi-embed th,.scpi-embed td { border:1px solid var(--line); padding:6px 9px; text-align:right; white-space:nowrap; }
+  .scpi-embed th { background:var(--head); color:#fff; cursor:pointer; }
+  .scpi-embed td.l,.scpi-embed th.l { text-align:left; }
+  .scpi-embed .averif { color:#9c5700; font-style:italic; background:#f2f2f2; }
+  .scpi-embed .cards { display:flex; gap:12px; flex-wrap:wrap; margin:10px 0; }
+  .scpi-embed .card { border:1px solid var(--line); border-radius:8px; padding:12px 16px; background:#fff; }
+  .scpi-embed .card b { font-size:22px; display:block; }
+  .scpi-embed .muted { color:#8a8f9a; }
+  .scpi-embed .charts { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin:14px 0; }
+  .scpi-embed input { font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:5px; margin:8px 0; width:320px; max-width:100%; }
+  .scpi-embed h2 { font-size:15px; margin:0 0 6px; }
+</style>
+</head>
+<body>
+<div class="scpi-embed" id="scpi-embed">
+  <div class="cards">
+    <div class="card"><span class="muted">SCPI</span><b>{{ kpis.n_scpi }}</b></div>
+    <div class="card"><span class="muted">TD moyen</span><b>{{ kpis.td_moyen if kpis.td_moyen is not none else '—' }} %</b></div>
+    <div class="card"><span class="muted">Métriques fiables</span><b style="color:#2e7d32">{{ kpis.n_ok }}</b></div>
+    <div class="card"><span class="muted">À vérifier</span><b style="color:#9c5700">{{ kpis.n_av }}</b></div>
+  </div>
+  <p class="muted">Instantané généré le {{ generated }} — lecture seule. Couleur : 🟢 favorable → 🔴 défavorable.</p>
+
+  <div class="charts">
+    <div><h2>Taux de distribution</h2><canvas id="scpiBar" height="220"></canvas></div>
+    <div><h2>Rendement vs décote/surcote</h2><canvas id="scpiScatter" height="220"></canvas></div>
+  </div>
+
+  <input id="scpiFlt" placeholder="Filtrer…" oninput="scpiFiltre()">
+  <div style="overflow:auto; max-height:70vh">
+  <table id="scpiTbl">
+    <thead><tr>
+      <th class="l">SCPI</th><th class="l">Société de gestion</th>
+      {% for cid,label,unit,dir in cols %}<th>{{ label }}{% if unit %} ({{ unit }}){% endif %}</th>{% endfor %}
+    </tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td class="l" data-val="{{ row.scpi.nom }}">{{ row.scpi.nom }}</td>
+        <td class="l" data-val="{{ row.scpi.sdg_nom }}">{{ row.scpi.sdg_nom }}</td>
+        {% for cid,label,unit,dir in cols %}
+          {% set v = row.ind[cid] %}
+          {% if v is none %}<td class="averif" data-val="">à vérifier</td>
+          {% else %}<td class="num" data-col="{{ cid }}" data-dir="{{ dir or 'none' }}" data-val="{{ v }}">{{ fmt(cid, v) }}</td>{% endif %}
+        {% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<script type="application/json" id="scpiData">{{ chart_data | tojson }}</script>
+<script>
+(function(){
+  const root = document.getElementById('scpi-embed');
+  const tbl = document.getElementById('scpiTbl');
+  // Échelle de couleur vert->rouge par colonne.
+  const cells = [...tbl.querySelectorAll('td.num[data-val]')], byCol={};
+  cells.forEach(c => (byCol[c.dataset.col] ??= []).push(c));
+  for (const col in byCol) {
+    const cs=byCol[col], vals=cs.map(c=>parseFloat(c.dataset.val)).filter(v=>!isNaN(v));
+    if(!vals.length) continue;
+    const mn=Math.min(...vals), mx=Math.max(...vals);
+    cs.forEach(c=>{ let v=parseFloat(c.dataset.val); if(isNaN(v)||c.dataset.dir==='none')return;
+      let t=mx===mn?0.5:(v-mn)/(mx-mn); if(c.dataset.dir==='bas')t=1-t;
+      const r=t<.5?248:Math.round(248-(t-.5)*2*149), g=t<.5?Math.round(105+t*2*85):190, b=t<.5?107:Math.round(190-(t-.5)*2*67);
+      c.style.background=`rgb(${r},${g},${b})`; });
+  }
+  // Tri au clic.
+  tbl.querySelectorAll('th').forEach((th,ci)=>{ let asc=true; th.addEventListener('click',()=>{
+    const tb=tbl.tBodies[0], rows=[...tb.rows];
+    rows.sort((a,b)=>{ const av=a.cells[ci].dataset.val,bv=b.cells[ci].dataset.val,na=parseFloat(av),nb=parseFloat(bv);
+      if(!isNaN(na)&&!isNaN(nb))return asc?na-nb:nb-na; return asc?(av||'').localeCompare(bv||''):(bv||'').localeCompare(av||''); });
+    asc=!asc; rows.forEach(r=>tb.appendChild(r)); }); });
+  window.scpiFiltre=function(){ const q=document.getElementById('scpiFlt').value.toLowerCase();
+    for(const tr of tbl.tBodies[0].rows){ tr.style.display=(tr.cells[0].innerText+' '+tr.cells[1].innerText).toLowerCase().includes(q)?'':'none'; } };
+  // Graphiques.
+  const D=JSON.parse(document.getElementById('scpiData').textContent);
+  const td=D.filter(d=>d.td!=null).sort((a,b)=>b.td-a.td);
+  new Chart(document.getElementById('scpiBar'),{type:'bar',
+    data:{labels:td.map(d=>d.nom),datasets:[{data:td.map(d=>d.td),backgroundColor:'#1F3864'}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+  const sc=D.filter(d=>d.td!=null&&d.ecart!=null);
+  new Chart(document.getElementById('scpiScatter'),{type:'scatter',
+    data:{datasets:[{data:sc.map(d=>({x:d.ecart,y:d.td,nom:d.nom})),backgroundColor:'#2e7d32'}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw.nom} : TD ${c.raw.y}%, écart ${c.raw.x}%`}}},
+      scales:{x:{title:{display:true,text:'Écart prix/reconstitution (%)'}},y:{title:{display:true,text:'TD (%)'}}}}});
+})();
+</script>
+</body>
+</html>

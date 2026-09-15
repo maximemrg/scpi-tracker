@@ -121,6 +121,14 @@ def cmd_excel(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_html(args: argparse.Namespace) -> int:
+    from .webexport import export_html
+    with Store(args.db) as store:
+        out = export_html(store, args.out)
+    print(f"Page HTML autonome écrite : {out}")
+    return 0
+
+
 def cmd_summary(args: argparse.Namespace) -> int:
     """Résumé Markdown du dernier run (pour le step summary de la CI)."""
     with Store(args.db) as store:
@@ -191,6 +199,10 @@ def main(argv: list[str] | None = None) -> int:
     ex = sub.add_parser("excel", help="génère SCPI_tracker.xlsx")
     ex.add_argument("--out", default="SCPI_tracker.xlsx")
     ex.set_defaults(func=cmd_excel)
+
+    eh = sub.add_parser("export-html", help="exporte une page HTML autonome (site tiers)")
+    eh.add_argument("--out", default="public/scpi.html")
+    eh.set_defaults(func=cmd_export_html)
 
     sm = sub.add_parser("summary", help="résumé Markdown du dernier run (CI)")
     sm.set_defaults(func=cmd_summary)

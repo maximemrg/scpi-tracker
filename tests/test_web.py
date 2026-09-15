@@ -67,3 +67,21 @@ def test_manual_override_via_web(tmp_path):
                    for a in dataview.a_verifier(store, "corum_eurion"))
     store.close()
     webapp.app.dependency_overrides.clear()
+
+
+def test_export_html(tmp_path):
+    from scpi.webexport import export_html
+    store = Store(tmp_path / "t.sqlite")
+    store.upsert_scpi(
+        "corum_eurion", "Corum Eurion", "corum_lepargne", "Corum L'Épargne", "corum.fr"
+    )
+    store.insert_metrics([Metric.ok_num(
+        scpi_id="corum_eurion", metric_key=MetricKey.TAUX_DISTRIBUTION, value=5.73, unit="%",
+        period="2025", source_url="u", published_at=date(2026, 6, 30), collected_at=now_utc(),
+        confidence=Confidence.HAUTE)])
+    out = export_html(store, tmp_path / "public" / "scpi.html")
+    html = out.read_text(encoding="utf-8")
+    assert out.exists()
+    assert "Corum Eurion" in html and "<canvas" in html and "scpi-embed" in html
+    assert "127.0.0.1" not in html  # autonome : aucune dépendance au backend local
+    store.close()

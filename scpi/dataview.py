@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .models import Confidence, Status
+from .models import Confidence, MetricKey, Status
 from .storage import Store
 
 
@@ -127,6 +127,53 @@ def sources(store: Store) -> list[dict[str, Any]]:
            ORDER BY scpi_id, metric_key""",
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+# --- Indicateurs de sélection (réutilisés par l'app web et l'export HTML) -----
+# (id, libellé, unité, sens favorable : haut|bas|None)
+SCREENER_COLS: list[tuple[str, str, str, str | None]] = [
+    ("td", "TD", "%", "haut"),
+    ("tri5", "TRI 5 ans", "%", "haut"),
+    ("ecart", "Écart prix/reconst.", "%", "bas"),
+    ("tof", "TOF", "%", "haut"),
+    ("frais", "Frais gestion", "%", "bas"),
+    ("prix", "Prix souscr.", "€", None),
+    ("capi", "Capitalisation", "€", None),
+    ("delai", "Délai jouiss.", "mois", "bas"),
+]
+
+
+def num_value(store: Store, scpi_id: str, key: str) -> float | None:
+    c = current_cell(store, scpi_id, key)
+    if c is None or c.status != Status.OK or not isinstance(c.value, (int, float)):
+        return None
+    return float(c.value)
+
+
+def indicators(store: Store, scpi_id: str) -> dict[str, float | None]:
+    prix = num_value(store, scpi_id, MetricKey.PRIX_SOUSCRIPTION)
+    reconst = num_value(store, scpi_id, MetricKey.VALEUR_RECONSTITUTION)
+    ecart = round((prix - reconst) / reconst * 100, 2) if prix and reconst else None
+    return {
+        "td": num_value(store, scpi_id, MetricKey.TAUX_DISTRIBUTION),
+        "tri5": num_value(store, scpi_id, MetricKey.TRI_5ANS),
+        "tof": num_value(store, scpi_id, MetricKey.TOF),
+        "ecart": ecart,
+        "frais": num_value(store, scpi_id, MetricKey.FRAIS_GESTION),
+        "capi": num_value(store, scpi_id, MetricKey.CAPITALISATION),
+        "prix": prix,
+        "delai": num_value(store, scpi_id, MetricKey.DELAI_JOUISSANCE),
+    }
+
+
+def screener_rows(store: Store) -> list[dict[str, Any]]:
+    rows = []
+    for s in list_scpi(store):
+        rows.append({
+            "scpi": s, "ind": indicators(store, s["scpi_id"]),
+            "n_av": len(a_verifier(store, s["scpi_id"])),
+        })
+    return rows
 
 
 def _num_or_text(row: Any) -> float | str | None:

@@ -19,24 +19,14 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .. import dataview
-from ..models import MetricKey, Status
+from ..models import MetricKey
 from ..parsing import parse_number_fr
 from ..storage import Store
 
 DB_PATH = os.environ.get("SCPI_DB", "data/scpi.sqlite")
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
-# Colonnes du screener : (id, libellé, unité, sens_favorable haut|bas|None)
-SCREENER: list[tuple[str, str, str, str | None]] = [
-    ("td", "TD", "%", "haut"),
-    ("tri5", "TRI 5 ans", "%", "haut"),
-    ("ecart", "Écart prix/reconst.", "%", "bas"),
-    ("tof", "TOF", "%", "haut"),
-    ("frais", "Frais gestion", "%", "bas"),
-    ("prix", "Prix souscr.", "€", None),
-    ("capi", "Capitalisation", "€", None),
-    ("delai", "Délai jouiss.", "mois", "bas"),
-]
+SCREENER = dataview.SCREENER_COLS
 _HISTORY_KEYS = [MetricKey.PRIX_SOUSCRIPTION, MetricKey.PRIX_RETRAIT,
                  MetricKey.TAUX_DISTRIBUTION, MetricKey.CAPITALISATION, MetricKey.ACOMPTE]
 
@@ -51,42 +41,9 @@ def get_store() -> Iterator[Store]:
         store.close()
 
 
-def _num(store: Store, scpi_id: str, key: str) -> float | None:
-    c = dataview.current_cell(store, scpi_id, key)
-    if c is None or c.status != Status.OK or not isinstance(c.value, (int, float)):
-        return None
-    return float(c.value)
-
-
-def _indicators(store: Store, scpi_id: str) -> dict[str, float | None]:
-    """Indicateurs de sélection (valeurs numériques sûres, sinon None)."""
-    prix = _num(store, scpi_id, MetricKey.PRIX_SOUSCRIPTION)
-    reconst = _num(store, scpi_id, MetricKey.VALEUR_RECONSTITUTION)
-    ecart = round((prix - reconst) / reconst * 100, 2) if prix and reconst else None
-    return {
-        "td": _num(store, scpi_id, MetricKey.TAUX_DISTRIBUTION),
-        "tri5": _num(store, scpi_id, MetricKey.TRI_5ANS),
-        "tof": _num(store, scpi_id, MetricKey.TOF),
-        "ecart": ecart,
-        "frais": _num(store, scpi_id, MetricKey.FRAIS_GESTION),
-        "capi": _num(store, scpi_id, MetricKey.CAPITALISATION),
-        "prix": prix,
-        "delai": _num(store, scpi_id, MetricKey.DELAI_JOUISSANCE),
-    }
-
-
-def _screener_rows(store: Store) -> list[dict[str, Any]]:
-    rows = []
-    for s in dataview.list_scpi(store):
-        ind = _indicators(store, s["scpi_id"])
-        n_av = len(dataview.a_verifier(store, s["scpi_id"]))
-        rows.append({"scpi": s, "ind": ind, "n_av": n_av})
-    return rows
-
-
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, store: Store = Depends(get_store)) -> Any:
-    rows = _screener_rows(store)
+    rows = dataview.screener_rows(store)
     n_scpi = len(rows)
     tds = [r["ind"]["td"] for r in rows if r["ind"]["td"] is not None]
     n_ok = store.conn.execute("SELECT COUNT(*) c FROM metrics WHERE status='OK'").fetchone()["c"]
@@ -116,7 +73,7 @@ def dashboard(request: Request, store: Store = Depends(get_store)) -> Any:
 @app.get("/comparatif", response_class=HTMLResponse)
 def comparatif(request: Request, store: Store = Depends(get_store)) -> Any:
     return _TEMPLATES.TemplateResponse(request, "comparatif.html",
-                                       {"rows": _screener_rows(store), "cols": SCREENER})
+                                       {"rows": dataview.screener_rows(store), "cols": SCREENER})
 
 
 @app.get("/scpi/{scpi_id}", response_class=HTMLResponse)
